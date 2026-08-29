@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#08090b">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<title>Kairo Ride · Data privacy</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<style>body{margin:0;background:#08090b;color:#f5f3ef;font:16px/1.75 system-ui,sans-serif}main{max-width:760px;margin:0 auto;padding:48px 24px 72px}h1{font-size:32px;line-height:1.2}h2{font-size:20px;margin-top:32px}p,li{color:#b6b7bd}a{color:#f16305}small{color:#8e9098}</style>
+</head>
+<body><main>
+<a href="./">← Kairo Ride</a>
+<h1>Your records. Your storage.</h1>
+<p>Kairo Ride is a browser-based ride archive for odometer history, rides, multi-day trips, vehicles, gear, maintenance and personal analytics. This page describes how this version handles data.</p>
+<h2>Where data is stored</h2>
+<p>Records and attached originals are first saved in this device's browser IndexedDB. If you connect Google Drive, they sync to a private Kairo Ride folder in your Google account. Kairo Ride has no separate personal-data backend.</p>
+<p>The hosting service serves the website code (GitHub Pages in the standard deployment). Hosting and Google services may process technical request data, such as IP addresses, under their own privacy terms. Your odometer entries, notes and attachments are not sent to the GitHub repository.</p>
+<h2>Google permission</h2>
+<p>Kairo Ride requests the <code>drive.file</code> scope. It can work only with files the app creates or that you explicitly make available to it; it does not request access to read your entire Drive. Your email address and Google permission ID distinguish accounts and show which account is connected.</p>
+<p>The temporary access token remains in the memory of the open app window. It is not written to backups, GitHub or persistent local storage. You may need to refresh access after the token expires. Sign-in and Drive requests go directly to Google.</p>
+<h2>Files and backups</h2>
+<p>GPX files, logs, photos and videos upload without modifying the original content. JSON and Excel exports contain record history and attachment metadata, but not the attachment originals. The Drive folder is not made public automatically; its owner can change sharing permissions in Drive.</p>
+<h2>Deletion and device security</h2>
+<p>Deleting a record creates a history event so earlier revisions remain recoverable. Removing an attachment link does not delete the original Drive file. To remove everything, delete the Kairo Ride folder and copies in Drive, clear this site's data on every device, and delete your exports.</p>
+<p>Signing out does not erase local data. Account copies on this device are separated but are not protected by an additional Kairo Ride password or application-level encryption. Protect your device and avoid private records in a shared browser profile.</p>
+<p>You can revoke Google access in <a href="https://myaccount.google.com/connections" target="_blank" rel="noopener noreferrer">Google Account connections</a>. Revoking access does not itself delete files already created.</p>
+<h2>Analytics, reminders and advertising</h2>
+<p>The Analytics tab calculates charts locally from your own odometer history. It is not usage tracking and sends no telemetry. Kairo Ride contains no advertising or background location tracking. Optional maintenance notifications are generated locally while the PWA is open or active.</p>
+<h2>Operator of this deployment</h2>
+<p>If you deploy the project under your own GitHub account, you operate that copy. Before offering it publicly, replace this section with the operator name and a valid support contact.</p>
+<p><small>Version 2.0.1 · 2026-08-29. This is a technical privacy description; a public product operator must adapt it to their activity and applicable law.</small></p>
+</main></body></html>

@@ -1,0 +1,18 @@
+{
+  "id": "./",
+  "name": "Kairo Ride",
+  "short_name": "Kairo Ride",
+  "description": "Privacy-first ride archive with fleet, odometer, trips, gear, maintenance and analytics.",
+  "lang": "en",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#08090b",
+  "theme_color": "#08090b",
+  "categories": ["lifestyle", "travel", "sports"],
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
