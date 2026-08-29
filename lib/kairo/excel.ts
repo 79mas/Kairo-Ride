@@ -79,30 +79,32 @@ export async function unzipXml(bytes: Uint8Array): Promise<Record<string,string>
 function parseXml(s: string) {
   if(/<!DOCTYPE|<!ENTITY/i.test(s))throw new Error("Nesaugus Excel XML turinys.");
   const doc=new DOMParser().parseFromString(s,"application/xml");
-  if(doc.getElementsByTagName("parsererror").length)throw new Error("Sugadintas Excel XML.");return doc;
+  if(doc.getElementsByTagNameNS("*","parsererror").length)throw new Error("Sugadintas Excel XML.");return doc;
 }
+const xmlElements=(root:Document|Element,name:string)=>[...root.getElementsByTagNameNS("*",name)];
+const OFFICE_REL="http://schemas.openxmlformats.org/officeDocument/2006/relationships";
 export async function readXlsx(bytes: Uint8Array): Promise<Workbook> {
   const files=await unzipXml(bytes);
   if(!files["xl/workbook.xml"]||!files["xl/_rels/workbook.xml.rels"])throw new Error("Nerastas Excel darbaknygės turinys.");
   const doc=parseXml(files["xl/workbook.xml"]);
-  if(["1","true"].includes(doc.getElementsByTagName("workbookPr")[0]?.getAttribute("date1904")??""))throw new Error("Šiame faile naudojamos 1904 m. datos. Išsaugok jį su standartine 1900 m. datų sistema.");
-  const rels=new Map([...parseXml(files["xl/_rels/workbook.xml.rels"]).getElementsByTagName("Relationship")].filter(r=>r.getAttribute("TargetMode")!=="External").map(r=>[r.getAttribute("Id"),r.getAttribute("Target")!]));
-  const shared=files["xl/sharedStrings.xml"]?[...parseXml(files["xl/sharedStrings.xml"]).getElementsByTagName("si")].map(n=>[...n.getElementsByTagName("t")].map(t=>t.textContent??"").join("")):[];
+  if(["1","true"].includes(xmlElements(doc,"workbookPr")[0]?.getAttribute("date1904")??""))throw new Error("Šiame faile naudojamos 1904 m. datos. Išsaugok jį su standartine 1900 m. datų sistema.");
+  const rels=new Map(xmlElements(parseXml(files["xl/_rels/workbook.xml.rels"]),"Relationship").filter(r=>r.getAttribute("TargetMode")!=="External").map(r=>[r.getAttribute("Id"),r.getAttribute("Target")!]));
+  const shared=files["xl/sharedStrings.xml"]?xmlElements(parseXml(files["xl/sharedStrings.xml"]),"si").map(n=>xmlElements(n,"t").map(t=>t.textContent??"").join("")):[];
   const book:Workbook=Object.create(null);let rows=0;
-  for(const sheet of [...doc.getElementsByTagName("sheet")]){
-    const target=rels.get(sheet.getAttribute("r:id"));if(!target)continue;
+  for(const sheet of xmlElements(doc,"sheet")){
+    const target=rels.get(sheet.getAttributeNS(OFFICE_REL,"id")??sheet.getAttribute("r:id"));if(!target)continue;
     const path=target.startsWith("/")?target.slice(1):`xl/${target}`;if(!files[path])continue;
     const matrix:Cell[][]=[];
-    for(const row of [...parseXml(files[path]).getElementsByTagName("row")]){
+    for(const row of xmlElements(parseXml(files[path]),"row")){
       if(++rows>20_000)throw new Error("Vienu importu palaikoma iki 20 000 eilučių.");
       const cells:Cell[]=[];
-      for(const cell of [...row.getElementsByTagName("c")]){
+      for(const cell of xmlElements(row,"c")){
         const ref=cell.getAttribute("r")??"A1";const letters=ref.match(/^[A-Z]+/)?.[0]??"A";let col=0;for(const c of letters)col=col*26+c.charCodeAt(0)-64;
         if(col>100)continue;
-        const type=cell.getAttribute("t"),raw=cell.getElementsByTagName("v")[0]?.textContent??"";
+        const type=cell.getAttribute("t"),raw=xmlElements(cell,"v")[0]?.textContent??"";
         let value:Cell=raw;
         if(type==="s")value=shared[Number(raw)]??"";
-        else if(type==="inlineStr")value=[...cell.getElementsByTagName("t")].map(t=>t.textContent??"").join("");
+        else if(type==="inlineStr")value=xmlElements(cell,"t").map(t=>t.textContent??"").join("");
         else if(type==="e")value=null;
         else if(raw!==""&&type!=="str"&&type!=="d")value=Number(raw);
         cells[col-1]=value;
