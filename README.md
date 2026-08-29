@@ -2,7 +2,7 @@
 
 ![Kairo Ride icon](public/icon-192.png)
 
-**Version 2.0.1**
+**Version 2.0.3**
 
 A privacy-first, English-first Progressive Web App for electric unicycle riders. Track odometer history, individual rides, multi-day trips, vehicles, gear, maintenance, insurance and original ride files from both phone and desktop.
 
@@ -12,8 +12,8 @@ Kairo Ride works offline, can sync directly to each user's Google Drive, and exp
 
 | Area | What it does |
 | --- | --- |
-| Dashboard | Configurable all-time, yearly, monthly or weekly hero statistics; Fleet cards; and a swipeable daily chart |
-| Rides | Records individual outings or trip stages, sorts them by column, and includes the authoritative odometer-reading view |
+| Dashboard | Long-term km/day, km/week or km/month averages; Fleet cards; and a swipeable daily chart with interactive vehicle toggles |
+| Rides | Keeps ride details, odometer values, trip links, notes and files in one workflow, with sortable columns |
 | Trips | Groups rides and files into single-day or multi-day journeys |
 | Garage | Manages multiple electric unicycles with independent odometer histories |
 | Maintenance | Tracks tread, bearings, tires, battery checks, custom work and insurance expiry reminders; completing a repeating item schedules its next date or odometer interval |
@@ -113,7 +113,7 @@ JSON and Excel backups contain attachment metadata and Drive links, **not the or
 
 ## Important limitations
 
-- Version 2.0.1 is an early product build. The included automated suite passed, but real Google OAuth, the final GitHub Pages deployment, and physical-phone installation must still be verified with the owner's accounts and devices.
+- Version 2.0.3 is an early product build. The included automated suite passed, but real Google OAuth, the final GitHub Pages deployment, and physical-phone installation must still be verified with the owner's accounts and devices.
 - A single attachment is limited to 512 MB. An imported backup is limited to 25 MB. The browser may impose a lower practical storage limit.
 - Large uploads are not guaranteed to continue after the PWA is closed or suspended. Keep the app open until synchronization finishes.
 - Maintenance and insurance notifications are local. They are checked while the PWA is open or active; a fully closed mobile PWA cannot guarantee a scheduled alert without a push-notification server.
@@ -169,6 +169,16 @@ The publishable static files are generated in `dist/client`. Do not serve the re
 | `public/` | Manifest, icons, public OAuth configuration, and privacy page |
 | `tests/` | Automated domain, storage, export, Drive-protocol, UI, and static-PWA checks |
 | `.github/workflows/deploy.yml` | TypeScript, automated test, and GitHub Pages deployment workflow |
+
+## Updating an existing deployment
+
+You do not need to delete the repository before installing a patch. Uploading a file at the same repository path updates that file in the new commit. Files that are not present in the new package are not removed automatically, so delete only items explicitly named in the release notes.
+
+For browser-only updates, upload the package contents to the repository root and commit them to `main`. Existing hidden setup files may be left in place when the release does not change them. [GitHub's browser uploader](https://docs.github.com/en/repositories/working-with-files/managing-files/adding-a-file-to-a-repository) accepts up to 100 files at a time and up to 25 MiB per file.
+
+For repeated updates, GitHub Desktop is safer and easier to review: clone the repository once, copy the new package contents over the local clone, review modified and deleted files, commit, and choose [**Push origin**](https://docs.github.com/en/desktop/making-changes-in-a-branch/pushing-changes-to-github-from-github-desktop). Never delete the local `.git` directory.
+
+Version 2.0.3 does not require deleting any application directory. The obsolete optional `.kairo-export` marker is no longer included; if it exists in a repository, it is not published and may be removed separately.
 
 ## Release checklist
 

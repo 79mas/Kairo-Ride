@@ -59,6 +59,31 @@ test("dashboard distance statistics use authoritative odometer intervals",()=>{
   const events=stats.distanceEvents(state);assert.deepEqual(events.map(event=>event.distance),[10,20]);
   assert.equal(stats.periodData(state,"week",0,"en-US",new Date("2026-01-02T12:00:00Z")).total,30);
 });
+test("the unified Ride workflow pairs odometer data once and keeps legacy records visible",()=>{
+  const pairedReading={...reading("paired","02",130),notes:"paired note"},pairedRide={...ride("paired",null,999),at:pairedReading.at,name:"Paired ride"};
+  const legacyReading={...reading("legacy-reading","03",150),notes:"legacy note"},rideOnly={...ride("ride-only",null,7),at:"2026-01-04T12:00:00.000Z",localDate:"2026-01-04",timeZone:"UTC"};
+  const operation=d.makeOperation(d.project([]),"device-a",[change("wheel",wheel),change("reading",pairedReading),change("ride",pairedRide),change("reading",legacyReading),change("ride",rideOnly)]),state=d.project([operation]);
+  const entries=stats.rideEntries(state);assert.equal(entries.length,3);
+  assert.equal(entries.find(entry=>entry.ride?.id==="paired").distanceKm,30);
+  assert.equal(entries.find(entry=>entry.reading?.id==="legacy-reading").notes,"legacy note");
+  assert.deepEqual(stats.distanceEvents(state).map(event=>event.distance),[30,20,7]);
+});
+test("trip totals use calculated odometer distance from the unified Ride workflow",()=>{
+  const pairedReading={...reading("trip-reading","02",135),at:"2026-03-29T12:00:00.000Z"},pairedRide={...ride("trip-reading",trip.id,null),at:pairedReading.at};
+  const operation=d.makeOperation(d.project([]),"device-a",[change("wheel",wheel),change("trip",trip),change("reading",pairedReading),change("ride",pairedRide)]),state=d.project([operation]);
+  const summary=stats.tripRideStats(trip,state);assert.equal(summary.distanceKm,35);assert.equal(summary.unknownDistances,0);assert.equal(summary.rides.length,1);
+});
+test("long-term hero averages use every vehicle and the whole history",()=>{
+  const operation=d.makeOperation(d.project([]),"device-a",[change("wheel",wheel),change("reading",reading("average","08",170))]),state=d.project([operation]),now=new Date("2026-01-08T12:00:00Z");
+  assert.equal(stats.averageDistance(state,"day",now),8.75);
+  assert.equal(stats.averageDistance(state,"week",now),61.25);
+  assert.equal(stats.averageDistance(state,"month",now),266.323);
+});
+test("ride, odometer and newly created trip commit as one local history operation",async()=>{
+  const ns=`unified-${crypto.randomUUID()}`,newTrip={...trip,id:"atomic-trip"},newRide={...ride("atomic-ride",newTrip.id,23),localDate:"2026-03-29",timeZone:"UTC"},newReading={id:newRide.id,wheelId:wheel.id,at:newRide.at,odometerKm:123,notes:""};
+  await db.commitChanges(ns,[{kind:"wheel",value:wheel,entityId:wheel.id},{kind:"trip",value:newTrip,entityId:newTrip.id},{kind:"ride",value:newRide,entityId:newRide.id},{kind:"reading",value:newReading,entityId:newReading.id}]);
+  const workspace=await db.loadWorkspace(ns);assert.equal(workspace.operations.length,1);assert.equal(workspace.state.trip.length,1);assert.equal(workspace.state.ride.length,1);assert.equal(workspace.state.reading.length,1);
+});
 test("empty recovery history cannot silently import an equipment-only report as no data",async()=>{
   const op=d.makeOperation(d.project([]),"a",[change("gear",gear)]),book=x.exportWorkbook([op]);book.History=[book.History[0]];
   await assert.rejects(()=>x.workbookImport(book),/missing recovery history/);

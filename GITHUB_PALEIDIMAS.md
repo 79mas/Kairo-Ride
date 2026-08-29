@@ -1,17 +1,17 @@
 # Kairo Ride: paleidimas per GitHub
 
-Versija 2.0.1 · 2026-08-29
+Versija 2.0.3 · 2026-08-29
 
 **GitHub talpins programėlę. Kiekvienas naudotojas savo įrašus ir failus saugos savo Google Drive.** Programėlės naudotojams GitHub paskyros nereikia. Toliau aprašytą pradinį paruošimą vieną kartą atlieka projekto savininkas.
 
 ## 1. Pasiruošk paketą
 
-1. Atsisiųsk ir išskleisk `Kairo-Ride-GitHub.zip` kompiuteryje.
+1. Atsisiųsk ir išskleisk `Kairo-Ride-2.0.3.zip` kompiuteryje.
 2. Atverk išskleistą `Kairo-Ride` aplanką. Jame turi matytis `package.json`, `app`, `components`, `public` ir kiti failai.
 3. **Nekelk į GitHub paties ZIP.** Reikia jo viduje esančių failų ir aplankų.
 4. Nepridėk savo Excel, JSON duomenų kopijų, nuotraukų, video, GPX ar prisijungimo paslapčių. `.gitignore` nėra apsauga nuo rankinio jų įkėlimo per svetainę.
 
-Jei jau suvedei duomenų ankstesnėje Kairo Ride versijoje, prieš persikeldamas atsidaryk `Data and storage → Download JSON backup` (`Duomenys ir saugojimas`, pasirinkus lietuvių kalbą). Dar neįkeltus priedų originalus išsisaugok atskirai. Senų duomenų netrink.
+Jei jau suvedei duomenų ankstesnėje Kairo Ride versijoje, prieš persikeldamas atsidaryk `Settings → Download JSON backup` (`Nustatymai`, pasirinkus lietuvių kalbą). Dar neįkeltus priedų originalus išsisaugok atskirai. Senų duomenų netrink.
 
 ## 2. Sukurk naują GitHub saugyklą
 
@@ -26,6 +26,26 @@ Jei jau suvedei duomenų ankstesnėje Kairo Ride versijoje, prieš persikeldamas
 Patikrink, kad GitHub yra failas **`.github/workflows/deploy.yml`**. Jei nepavyko įkelti `.github`, pasirink `Add file → Create new file`, failo vardu įrašyk šį kelią, o turinį nukopijuok iš pakete esančio `deploy.yml`. Taip GitHub sukurs reikiamus aplankus.
 
 Jei atnaujini jau sukurtą repozitoriją ir naršyklė paslėptą failą atmeta, atverk esamą `.github/workflows/deploy.yml`, paspausk pieštuko piktogramą ir pakeisk visą jo turinį pakete esančio failo turiniu. `.node-version`, `.gitignore` ir `.env.example` iš naujo kurti nereikia, jei jie jau yra.
+
+### Kaip diegti vėlesnius pataisų paketus
+
+**Prieš kiekvieną atnaujinimą visko trinti nereikia.** Į tą patį kelią įkeltas tokio pat pavadinimo failas naujame commit'e atnaujinamas. Tačiau failas, kurio naujame pakete nebėra, savaime neištrinamas ir lieka repozitorijoje.
+
+Šiam 2.0.3 paketui:
+
+- įkelk išskleisto `Kairo-Ride` aplanko turinį į repozitorijos šaknį ir patvirtink pakeitimus;
+- senų `app`, `components`, `lib`, `public` ar kitų katalogų prieš tai netrink;
+- jau esančių `.github`, `.gitignore`, `.node-version` ir `.env.example` gali iš naujo nekelti — šiame pataisų pakete jų nustatymų keisti nereikia;
+- pasenusio `.kairo-export` failo pakete nebėra. Jei jis yra repozitorijoje, aplikacijai netrukdo ir į svetainę nepublikuojamas; gali jį pašalinti atskirai.
+
+[GitHub naršyklės įkėlimas](https://docs.github.com/en/repositories/working-with-files/managing-files/adding-a-file-to-a-repository) priima iki 100 failų vienu kartu ir iki 25 MiB vienam failui. [Visą katalogą galima pašalinti](https://docs.github.com/en/repositories/working-with-files/managing-files/deleting-files-in-a-repository) vienu commit'u, bet kelių nesusijusių failų ir katalogų atnaujinimus patogiau atlikti per **GitHub Desktop**:
+
+1. Vieną kartą pasirink `File → Clone repository` ir atsisiųsk savo `Kairo-Ride` repozitoriją.
+2. Nukopijuok naujo paketo turinį į tą vietinį aplanką ir sutik pakeisti tokio pat pavadinimo failus.
+3. Jei leidimo pastabose nurodyta pašalinti seną failą, ištrink jį tame vietiniame aplanke. **Neliesk `.git` katalogo.**
+4. GitHub Desktop lange peržiūrėk `Changes`, įrašyk, pvz., `Update Kairo Ride to 2.0.3`, pasirink `Commit to main`, tada `Push origin`.
+
+GitHub istorija leidžia grįžti prie ankstesnio commit'o, todėl viso projekto ištrynimas prieš kiekvieną pataisą tik padidina riziką netyčia praleisti failą.
 
 ## 3. Įjunk GitHub Pages
 
@@ -114,7 +134,7 @@ Pakanka vieno iš šių būdų. Jei nustatyti abu, workflow kintamasis turi pirm
 ### 4.4. Pirmas tikras prisijungimas
 
 1. Atverk paskelbtą svetainę.
-2. Paspausk **Prijungti Drive** arba `Duomenys ir saugojimas → Prijungti Google Drive`.
+2. Paspausk **Connect Drive** arba `Settings → Connect Google Drive`.
 3. Pasirink Google paskyrą ir patvirtink leidimą.
 4. Jei vietinių duomenų jau yra, pasirink, ar juos **kopijuoti į šią paskyrą**. Esami vietiniai originalai nebus ištrinti.
 5. Palauk, kol sinchronizavimas baigsis. Atverk **Kairo Ride aplanką** ir įsitikink, kad jame yra duomenų istorija.
@@ -130,12 +150,12 @@ Naudotojo failai naudoja jo Drive vietą. Google ir GitHub planai bei limitai ga
 
 ## 5. Piktograma telefono pagrindiniame ekrane
 
-Pirmą kartą atverk svetainę su internetu. Pačioje programėlėje, `Data and storage → This device`, turi pasirodyti, kad programėlė paruošta darbui be interneto.
+Pirmą kartą atverk svetainę su internetu. Pačioje programėlėje, `Settings → This device`, turi pasirodyti, kad programėlė paruošta darbui be interneto.
 
 ### Android / Chrome
 
 1. Atverk **tikrą paskelbtą HTTPS adresą** per Chrome, ne GitHub failų peržiūrą ir ne Messenger vidinę naršyklę.
-2. Programėlėje atverk `Duomenys ir saugojimas → Programėlė telefone`. Jei rodomas **Įdiegti Kairo Ride**, paspausk jį.
+2. Programėlėje atverk `Settings → Install on your phone`. Jei rodomas **Install Kairo Ride**, paspausk jį.
 3. Kitu atveju Chrome meniu **⋮ → Add to home screen / Install app** (pavadinimas priklauso nuo kalbos ir versijos), tada patvirtink diegimą.
 4. Atverk Kairo Ride per naują piktogramą. [Chrome web programėlių diegimas](https://support.google.com/chrome/answer/9658361?co=GENIE.Platform%3DAndroid&hl=en).
 
@@ -151,7 +171,7 @@ Manifestas, atskira Apple piktograma, 192 ir 512 px piktogramos, maskable piktog
 
 ## 6. Duomenų perkėlimas
 
-Naujoje GitHub versijoje atverk **Duomenys ir saugojimas → Pasirinkti importo failą**. Pasirink ankstesnį Kairo Ride JSON / Excel arba senos PWA failą su `Rides` ir `Models` lapais. Peržiūrėk santrauką ir patvirtink. JSON / Excel importas neperkelia vietinių priedų originalų – juos reikia jau turėti Drive arba prisegti iš naujo.
+Naujoje GitHub versijoje atverk **Settings → Choose import file**. Pasirink ankstesnį Kairo Ride JSON / Excel arba senos PWA failą su `Rides` ir `Models` lapais. Peržiūrėk santrauką ir patvirtink. JSON / Excel importas neperkelia vietinių priedų originalų – juos reikia jau turėti Drive arba prisegti iš naujo.
 
 Naujas domenas ar kitas saugyklos kelias yra nauja vietinė erdvė. Tai normalu: nauja svetainė negali pati perskaityti ankstesnės svetainės naršyklės duomenų. Nepanaikink senos versijos ir jos vietinės kopijos, kol nepatikrinai įrašų bei originalų naujoje.
 
@@ -190,6 +210,6 @@ GitHub paskyrai įjunk dviejų žingsnių apsaugą: programėlės kodo pakeitima
 
 ## Paketo patikros prieš perdavimą
 
-Statinė versija surinkta ir 50 automatinių testų sėkmingai paleisti su abiem baziniais keliais: `/` ir `/Kairo-Ride/`. TypeScript ir ESLint patikros sėkmingos. Patikrintas sintetinės Google Client ID reikšmės įtraukimas tik į surinktą viešą konfigūraciją; pateikiamo kodo Client ID paliktas tuščias.
+Statinė versija surinkta ir 60 automatinių testų sėkmingai paleisti su abiem baziniais keliais: `/` ir `/Kairo-Ride/`. TypeScript ir ESLint patikros sėkmingos. Patikrintas sintetinės Google Client ID reikšmės įtraukimas tik į surinktą viešą konfigūraciją; pateikiamo kodo Client ID paliktas tuščias.
 
 Naudotos jau įdiegtos priklausomybės; `package-lock.json` priklausomybių grafas patikrintas nesiunčiant paketų. Šviežias `npm ci`, GitHub Actions publikavimas, realus Google OAuth ir fizinių telefonų diegimas šioje aplinkoje neatlikti. Pirmas GitHub paleidimas ir 7 skyriaus bandymai yra likusi paleidimo patikra.

@@ -1,4 +1,4 @@
-import {readFile,writeFile} from "node:fs/promises";
+import {readFile,rm,writeFile} from "node:fs/promises";
 import {spawn} from "node:child_process";
 import {fileURLToPath} from "node:url";
 import {loadEnv} from "vite";
@@ -18,6 +18,9 @@ if(typeof config.googleClientId!=="string"||(config.googleClientId&&!/^[0-9]+-[a
 if(!config.googleClientId)console.info("Google Drive is not configured: the local PWA and exports will still work.");
 
 try {
+  // Rolldown/Vite can retain an old hashed chunk across repeated local builds.
+  // Always rebuild this explicit generated directory from an empty state.
+  await rm(new URL("../dist/client",import.meta.url),{recursive:true,force:true});
   await writeFile(configPath,JSON.stringify(config,null,2)+"\n");
   const cli=fileURLToPath(new URL("../node_modules/vite/bin/vite.js",import.meta.url));
   const code=await new Promise((resolve,reject)=>{

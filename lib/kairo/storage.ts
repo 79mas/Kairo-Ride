@@ -51,10 +51,13 @@ export async function storeOperation(namespace: string, operation: Operation, bl
   await done; announce(namespace);
 }
 export async function commit(namespace: string, kind: Kind, value: Entity | null, entityId: string, blob?: Blob, parents?: string[]) {
+  return commitChanges(namespace,[{kind,value,entityId,parents}],blob?{attachmentId:entityId,blob}:undefined);
+}
+export async function commitChanges(namespace: string, changes: {kind:Kind;value:Entity|null;entityId:string;parents?:string[]}[], blob?: {attachmentId:string;blob:Blob}) {
   const [workspace,device]=await Promise.all([loadWorkspace(namespace),deviceId()]);
-  const op=makeOperation(workspace.state,device,[{kind,value,entityId}]);
-  if(parents) op.changes[0].parents=[...parents];
-  await storeOperation(namespace,op,blob?{attachmentId:entityId,blob}:undefined);
+  const op=makeOperation(workspace.state,device,changes.map(({kind,value,entityId})=>({kind,value,entityId})));
+  changes.forEach((change,index)=>{if(change.parents)op.changes[index].parents=[...change.parents];});
+  await storeOperation(namespace,op,blob);
   return op;
 }
 

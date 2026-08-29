@@ -1,20 +1,59 @@
-import {roundKm,wheelStats,type Maintenance,type State} from "./domain";
+import {roundKm,wheelStats,type Maintenance,type Reading,type Ride,type State,type Trip} from "./domain";
 
 export type ChartMode="week"|"month";
 export type DistanceEvent={date:string;wheelId:string;distance:number};
 export type PeriodPoint={date:string;label:string;total:number;[wheelId:string]:string|number};
+export type AverageUnit="day"|"week"|"month";
+export type RideEntry={
+  key:string;ride?:Ride;reading?:Reading;at:string;wheelId:string;name:string;tripId:string|null;
+  odometerKm:number|null;distanceKm:number|null;notes:string;warning:string|null;
+};
 
 const pad=(n:number)=>String(n).padStart(2,"0");
 export const dateKey=(d:Date)=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
 export const dateFromKey=(key:string)=>new Date(`${key}T12:00:00`);
 const addDays=(d:Date,n:number)=>{const next=new Date(d);next.setDate(next.getDate()+n);return next;};
 
-/** Odometer intervals are the authoritative distance source. Each interval belongs to its later reading's local day. */
+/** Joins the app's single Ride workflow while preserving separate ride/reading records in storage. */
+export function rideEntries(state:State):RideEntry[]{
+  const intervalByReading=new Map<string,{reading:Reading;distance:number|null;warning:string|null}>();
+  for(const wheel of state.wheel)for(const interval of wheelStats(wheel,state.reading).intervals)intervalByReading.set(interval.reading.id,{reading:interval.reading,distance:interval.distance,warning:interval.warning});
+  const available=new Set(state.reading.map(reading=>reading.id)),byMoment=new Map<string,Reading[]>();
+  for(const reading of state.reading){const key=`${reading.wheelId}|${reading.at}`,list=byMoment.get(key)??[];list.push(reading);byMoment.set(key,list);}
+  const entries:RideEntry[]=[];
+  for(const ride of state.ride){
+    let reading=available.has(ride.id)?state.reading.find(item=>item.id===ride.id):undefined;
+    if(!reading)reading=(byMoment.get(`${ride.wheelId}|${ride.at}`)??[]).find(item=>available.has(item.id));
+    if(reading)available.delete(reading.id);
+    const interval=reading?intervalByReading.get(reading.id):undefined;
+    entries.push({key:`ride:${ride.id}`,ride,reading,at:ride.at,wheelId:ride.wheelId,name:ride.name,tripId:ride.tripId,odometerKm:reading?.odometerKm??null,distanceKm:reading?interval?.distance??null:ride.distanceKm,notes:ride.notes||reading?.notes||"",warning:interval?.warning??null});
+  }
+  for(const reading of state.reading)if(available.has(reading.id)){
+    const interval=intervalByReading.get(reading.id);
+    entries.push({key:`reading:${reading.id}`,reading,at:reading.at,wheelId:reading.wheelId,name:"",tripId:null,odometerKm:reading.odometerKm,distanceKm:interval?.distance??null,notes:reading.notes,warning:interval?.warning??null});
+  }
+  return entries.sort((a,b)=>Date.parse(b.at)-Date.parse(a.at)||a.key.localeCompare(b.key,"en"));
+}
+
+export function readingForRide(state:State,ride:Ride){return rideEntries(state).find(entry=>entry.ride?.id===ride.id)?.reading;}
+
+/** Trip totals use the same effective Ride distance shown in the unified Ride table. */
+export function tripRideStats(trip:Trip,state:State){
+  const entries=rideEntries(state).filter(entry=>entry.ride?.tripId===trip.id),rides=entries.flatMap(entry=>entry.ride?[entry.ride]:[]);
+  const days=Math.round((Date.parse(`${trip.endDate}T12:00:00Z`)-Date.parse(`${trip.startDate}T12:00:00Z`))/86_400_000)+1;
+  const known=entries.filter(entry=>entry.distanceKm!==null),ids=new Set(rides.map(ride=>ride.id));
+  return {rides,days,distanceKm:roundKm(known.reduce((sum,entry)=>sum+entry.distanceKm!,0)),unknownDistances:entries.length-known.length,
+    attachments:state.attachment.filter(file=>file.ownerKind==="trip"?file.ownerId===trip.id:ids.has(file.ownerId))};
+}
+
+/** Odometer intervals remain authoritative; ride distance fills only records without a paired reading. */
 export function distanceEvents(state:State):DistanceEvent[]{
-  return state.wheel.flatMap(wheel=>wheelStats(wheel,state.reading).intervals
-    .filter(interval=>interval.distance!==null&&interval.distance!>0)
-    .map(interval=>({date:dateKey(new Date(interval.reading.at)),wheelId:wheel.id,distance:interval.distance!})))
-    .sort((a,b)=>a.date.localeCompare(b.date)||a.wheelId.localeCompare(b.wheelId,"en"));
+  return rideEntries(state).flatMap(entry=>{
+    const distance=entry.distanceKm;
+    if(distance===null||distance<=0)return [];
+    const date=entry.ride?.localDate??dateKey(new Date(entry.at));
+    return [{date,wheelId:entry.wheelId,distance}];
+  }).sort((a,b)=>a.date.localeCompare(b.date)||a.wheelId.localeCompare(b.wheelId,"en"));
 }
 
 export function periodWindow(mode:ChartMode,offset=0,now=new Date()){
@@ -53,6 +92,16 @@ export function metricDistance(state:State,metric:Metric,wheelId="all",now=new D
   else start=periodWindow("week",0,now).start;
   const from=dateKey(start),to=dateKey(now);
   return roundKm(events.filter(e=>e.date>=from&&e.date<=to).reduce((sum,e)=>sum+e.distance,0));
+}
+
+/** Long-term average across every vehicle and every distance record. */
+export function averageDistance(state:State,unit:AverageUnit,now=new Date()){
+  const total=metricDistance(state,"all","all",now);
+  const dates=[...state.wheel.map(wheel=>wheel.baselineDate),...state.reading.map(reading=>dateKey(new Date(reading.at))),...state.ride.map(ride=>ride.localDate??dateKey(new Date(ride.at)))].sort();
+  if(!dates.length||total===0)return 0;
+  const elapsedDays=Math.max(1,Math.floor((+new Date(`${dateKey(now)}T12:00:00`)-+dateFromKey(dates[0]))/86_400_000)+1);
+  const periodDays=unit==="day"?1:unit==="week"?7:365.2425/12;
+  return roundKm(total/(elapsedDays/periodDays));
 }
 
 export function monthlySeries(state:State,locale="en-US"){
