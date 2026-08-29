@@ -68,7 +68,7 @@ export class DriveClient {
   readonly expiresAt:number;
   private controller=new AbortController();
   private folders=new Map<string,DriveFile>();
-  constructor(token:string,expiresAt:number,private fetcher:typeof fetch=fetch){this.token=token;this.expiresAt=expiresAt;}
+  constructor(token:string,expiresAt:number,private fetcher:typeof fetch=globalThis.fetch.bind(globalThis)){this.token=token;this.expiresAt=expiresAt;}
   get connected(){return !!this.token&&!this.controller.signal.aborted&&Date.now()<this.expiresAt-30_000;}
   disconnect(){this.controller.abort();this.token="";this.folders.clear();}
   assertConnected(){if(!this.connected)throw new DriveError("Atnaujink Google prieigą. Vietiniai pakeitimai saugūs šiame įrenginyje.",401);}
