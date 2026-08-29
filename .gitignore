@@ -1,0 +1,16 @@
+node_modules/
+dist/
+.next/
+*.tsbuildinfo
+.env*
+!.env.example
+.kairo-export
+backups/
+data/
+uploads/
+Kairo-Ride-*.json
+*.xlsx
+*.gpx
+*.csv
+*.mp4
+*.mov
