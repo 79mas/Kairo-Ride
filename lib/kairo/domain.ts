@@ -14,9 +14,19 @@ const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(v => {
 }, "Invalid date.");
 const timeZone = z.string().max(100).refine(v=>{try{new Intl.DateTimeFormat("en",{timeZone:v});return true;}catch{return false;}},"Invalid time zone.");
 
+export const WHEEL_STATUSES = ["active", "attention", "critical", "in_repair", "spare", "sold"] as const;
+export type WheelStatus = typeof WHEEL_STATUSES[number];
+export const wheelStatusLabels: Record<WheelStatus, string> = {
+  active: "Active", attention: "Active!", critical: "Critical", in_repair: "In repair", spare: "Spare", sold: "Sold",
+};
+
 export const wheelSchema = z.object({
   id, name, baselineKm: km, baselineDate: day,
   color: z.string().regex(/^#[0-9a-fA-F]{6}$/), notes: text,
+  // Do not inject defaults into immutable history: pre-2.0.5 operations keep
+  // their exact representation and missing status is interpreted as Active.
+  status: z.enum(WHEEL_STATUSES).optional(),
+  statusNote: z.string().trim().max(1000).optional(),
 }).strict();
 export const readingSchema = z.object({
   id, wheelId: id, at: instant, odometerKm: km, notes: text,
@@ -69,6 +79,24 @@ export type Attachment = z.infer<typeof attachmentSchema>;
 export type Entity = Wheel | Reading | Trip | Ride | Gear | Maintenance | Attachment;
 export type Entities = { wheel: Wheel; reading: Reading; trip: Trip; ride: Ride; gear: Gear; maintenance: Maintenance; attachment: Attachment };
 export const schemas = { wheel: wheelSchema, reading: readingSchema, trip: tripSchema, ride: rideSchema, gear: gearSchema, maintenance: maintenanceSchema, attachment: attachmentSchema };
+
+export const storedWheelStatus = (wheel: Wheel): WheelStatus => wheel.status ?? "active";
+export function canRecordWithWheel(wheel: Wheel | undefined): boolean {
+  return !!wheel && ["active", "attention", "spare"].includes(storedWheelStatus(wheel));
+}
+
+/** Old records stay editable, including adding ride details to a legacy record.
+ * Moving a record onto a different inactive wheel is a new association and is blocked. */
+export function hasArchivedRecord(state: State, wheelId: string, recordId: string): boolean {
+  return [...state.ride, ...state.reading].some(record => record.id === recordId && record.wheelId === wheelId);
+}
+export function validateRecordTarget(state: State, record: Reading | Ride): void {
+  const wheel = state.wheel.find(item => item.id === record.wheelId);
+  if (!wheel) throw new Error("Add a vehicle first.");
+  if (!canRecordWithWheel(wheel) && !hasArchivedRecord(state, wheel.id, record.id)) {
+    throw new Error(`${wheel.name} is ${wheelStatusLabels[storedWheelStatus(wheel)]}. New records are disabled. Change its status in Garage first; archived records remain available.`);
+  }
+}
 
 export type Mutation = { kind: Kind; entityId: string; parents: string[]; value: Entity | null };
 export type Operation = { version: 1; id: string; deviceId: string; createdAt: string; changes: Mutation[] };
@@ -181,7 +209,7 @@ export function wheelStats(wheel: Wheel, readings: Reading[]) {
     const from = previous;
     const diff = roundKm(reading.odometerKm - from);
     previous = reading.odometerKm;
-    const warning = diff < 0 ? "The odometer decreased. Check the reading or its date." : (times.get(String(Date.parse(reading.at))) ?? 0) > 1 ? "Multiple readings have the same time. Adjust the time." : null;
+    const warning = diff < 0 ? "The odometer decreased. Check the record or its date." : (times.get(String(Date.parse(reading.at))) ?? 0) > 1 ? "Multiple records have the same time. Adjust the time." : null;
     return { reading, from, distance: diff < 0 ? null : diff, warning };
   });
   const invalid = intervals.some(i => i.distance === null);
@@ -201,7 +229,13 @@ export function validateEdit(state: State, kind: Kind, entity: Entity): void {
   schemas[kind].parse(entity);
   if (kind === "reading" || kind === "ride") {
     const record = entity as Reading | Ride;
-    if (!state.wheel.some(w => w.id === record.wheelId)) throw new Error("Add a vehicle first.");
+    validateRecordTarget(state, record);
+  }
+  if (kind === "wheel") {
+    const wheel = entity as Wheel;
+    if (wheel.status === "attention" && !wheel.statusNote?.trim() && !state.maintenance.some(item => item.targetKind === "wheel" && item.targetId === wheel.id && !item.completedAt)) {
+      throw new Error("Add a maintenance reminder note or an unfinished maintenance task before choosing the Active! status.");
+    }
   }
   if (kind === "ride") {
     const r = entity as Ride;
@@ -227,9 +261,13 @@ export function validateEdit(state: State, kind: Kind, entity: Entity): void {
   }
   if (kind === "reading" || kind === "wheel") {
     const wheel = kind === "wheel" ? entity as Wheel : state.wheel.find(w => w.id === (entity as Reading).wheelId)!;
+    const savedWheel = kind === "wheel" ? state.wheel.find(item => item.id === wheel.id) : undefined;
+    // An imported archive may already need odometer corrections. Status, name or
+    // note edits must still work when they do not alter either baseline field.
+    if (savedWheel && savedWheel.baselineKm === wheel.baselineKm && savedWheel.baselineDate === wheel.baselineDate) return;
     const readings = kind === "reading" ? [...state.reading.filter(r => r.id !== entity.id), entity as Reading] : state.reading;
     const result = wheelStats(wheel, readings);
-    if (result.trackedKm === null) throw new Error("The reading breaks the odometer sequence. Check its date, vehicle and neighbouring readings.");
+    if (result.trackedKm === null) throw new Error("The record breaks the odometer sequence. Check its date, vehicle and neighbouring records.");
     // baselineDate is calendar-only. Comparing it with a UTC day would reject valid
     // local-midnight readings. The numeric odometer sequence is the invariant.
   }

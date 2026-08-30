@@ -117,7 +117,7 @@ body {background:
 .hero-slash {position:absolute;top:-50px;right:14%;width:48px;height:230px;background:linear-gradient(#f16305,transparent);transform:skewX(-27deg);opacity:.72}
 .hero-controls {position:relative;z-index:2;display:flex;gap:10px;justify-content:flex-end}.hero-controls>.form-select {width:auto;min-width:170px;background:#15161b;border-color:#41434a;font-size:12px}
 .hero-primary {display:flex;align-items:baseline;gap:10px;margin:18px 0 25px;position:relative;z-index:1}.hero-primary p {position:absolute;top:-2px;left:1px;color:#b7b8be;font-size:10px;font-weight:800;letter-spacing:1.4px;text-transform:uppercase}.hero-primary strong {font-size:64px;line-height:1;font-family:var(--font-mono);font-weight:750;letter-spacing:-4px;color:#fff;margin-top:24px;text-shadow:0 0 28px rgba(241,99,5,.16)}.hero-primary span {font-size:15px;color:#f16305;font-weight:700}
-.hero-secondary {position:relative;z-index:1;display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid #34363d;padding-top:18px}.hero-secondary>div {display:flex;flex-direction:column;gap:3px;padding:0 22px;border-right:1px solid #292b31}.hero-secondary>div:first-child {padding-left:0}.hero-secondary>div:last-child {border:0}.hero-secondary strong {font-family:var(--font-mono);font-size:15px;color:#f5f3ef}.hero-secondary span {font-size:10px;color:#888a92}
+.hero-secondary {position:relative;z-index:1;display:grid;grid-template-columns:repeat(4,1fr);padding-top:18px}.hero-secondary>div {display:flex;flex-direction:column;gap:3px;padding:0 22px;border-right:1px solid #292b31}.hero-secondary>div:first-child {padding-left:0}.hero-secondary>div:last-child {border:0}.hero-secondary strong {font-family:var(--font-mono);font-size:15px;color:#f5f3ef}.hero-secondary span {font-size:10px;color:#888a92}
 
 .fleet-section {margin:30px 0}.fleet-section>.section-heading {margin-bottom:14px}.fleet-strip {display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:13px}.fleet-strip article {--wheel-color:#f16305;position:relative;overflow:hidden;display:flex;flex-direction:column;background:#121318;border:1px solid #2e3036;border-radius:13px;padding:18px 18px 20px}.fleet-strip article::after {content:"";position:absolute;left:0;right:0;bottom:0;height:3px;background:var(--wheel-color)}.fleet-strip article::before {content:"";position:absolute;right:-25px;top:-38px;width:105px;height:105px;border:1px solid color-mix(in srgb,var(--wheel-color) 38%,transparent);border-radius:50%}.fleet-strip span {font-size:12px;color:#aaaeb6}.fleet-strip strong {font-family:var(--font-mono);font-size:26px;letter-spacing:-1px;color:var(--wheel-color);margin-top:4px}.fleet-strip small {font-size:9px;color:#73757d;margin-top:4px}
 
@@ -198,6 +198,30 @@ body {background:
 .auto-sync-setting input {accent-color:#f16305;width:18px;height:18px;margin-top:2px;flex-shrink:0}
 .auto-sync-setting small {display:block;font-size:11px;line-height:1.6;color:var(--muted-foreground);margin-top:4px}
 .sync-issue {color:#e3b775!important;overflow-wrap:anywhere}
+/* 2.0.5: the divider label scopes only the four vehicle-filtered totals. */
+.hero-vehicle-scope {position:relative;z-index:1;border-top:1px solid #41434a;border-bottom:1px solid #41434a;padding:12px 0;color:#f4ede7;font-size:12px;font-weight:650;letter-spacing:.035em;overflow-wrap:anywhere}
+.vehicle-status-control {display:inline-flex;align-items:center;gap:8px;min-height:44px;margin:0 0 10px;text-align:left;border-radius:8px}
+.vehicle-status-control>svg {width:14px;height:14px;color:#a8aab2}
+.vehicle-status-control:hover>svg {color:#ff9b5a}
+.vehicle-status-control:focus-visible {outline:2px solid #f16305;outline-offset:4px}
+.vehicle-status {display:inline-flex;align-items:center;gap:7px;max-width:100%;padding:5px 9px;border:1px solid #53625a;border-radius:7px;color:#bfe5ca;background:#15241c;font-size:11px;font-weight:650}
+.vehicle-status>i {width:7px;height:7px;background:currentColor;border-radius:50%;flex-shrink:0}
+.vehicle-status-attention {color:#ffc087;border-color:#92501e;background:#34200f}
+.vehicle-status-critical {color:#ffb6b6;border-color:#874040;background:#351719}
+.vehicle-status-in_repair {color:#e0c3ff;border-color:#6d5087;background:#281c34}
+.vehicle-status-spare {color:#b9daff;border-color:#4b6785;background:#182633}
+.vehicle-status-sold {color:#c3c4cb;border-color:#555762;background:#24252b}
+.wheel-card>p.vehicle-archived-note {margin:0 0 14px;font-size:11px;color:#b7b8c0}
+.record-status-warning {border:1px solid #874040;border-radius:8px;background:#351719;color:#ffcccc;padding:12px;font-size:12px;line-height:1.6}
+.vehicle-reminder-list {max-height:min(300px,45dvh);overflow-y:auto;overscroll-behavior:contain;padding-right:6px;font-size:12px;line-height:1.5;overflow-wrap:anywhere}
+.vehicle-reminder-item+.vehicle-reminder-item {border-top:1px solid currentColor;margin-top:10px;padding-top:10px}
+.vehicle-reminder-item>strong {display:block;margin:4px 0;font-size:13px}
+.vehicle-reminder-item p {margin:5px 0}
+.vehicle-reminder-item ul {list-style:disc;padding-left:18px;margin:7px 0}
+.vehicle-reminder-item li+li {margin-top:8px}
+.vehicle-reminder-item small {display:block;font-size:11px;opacity:.85}
+.feedback-section a {color:#ffac70;text-decoration:underline;text-underline-offset:3px;overflow-wrap:anywhere}
+.feedback-section a:focus-visible {outline:2px solid #f16305;outline-offset:3px;border-radius:2px}
 @media(max-width:700px){
   .ride-ledger-toolbar {flex-wrap:wrap;gap:8px;margin-bottom:8px}
   .ride-ledger-sort {flex:1}

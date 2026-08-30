@@ -1,16 +1,31 @@
 # Kairo Ride: paleidimas per GitHub
 
-Versija 2.0.4 · 2026-08-30 · papildyta Maintenance šablonais
+Versija 2.0.5 · 2026-08-30 · ratų statusai ir priežiūros priminimai
 
-## Trumpai: atnaujinimas iš 2.0.3 arba ankstesnio 2.0.4 paketo
+## Trumpai: atnaujinimas iš 2.0.4 ar ankstesnio paketo
 
 1. Programėlėje atsisiųsk JSON atsarginę kopiją. Neįkeltus originalius priedus išsisaugok atskirai.
-2. Išskleisk `Kairo-Ride-2.0.4.zip` ir įkelk **vidinio `Kairo-Ride` aplanko turinį** į tą pačią GitHub repozitorijos šaknį. Pasirink `Commit changes`. Senų katalogų prieš tai netrink.
+2. Išskleisk `Kairo-Ride-2.0.5.zip` ir įkelk **vidinio `Kairo-Ride` aplanko turinį** į tą pačią GitHub repozitorijos šaknį. Pasirink `Commit changes`. Senų katalogų prieš tai netrink.
 3. Įkelk ir naujus failus iš `components/kairo`, `hooks`, `lib/kairo` bei `tests`. Jau esančių paslėptų konfigūracijos failų keisti nereikia. `GOOGLE_CLIENT_ID` GitHub kintamasis ir esama Google konfigūracija lieka tie patys.
-4. Sulauk žalio `Actions → Publish Kairo Ride` rezultato. Atnaujink puslapį su internetu, kad atsisiųstų naują programą, tada uždaryk visus Kairo Ride naršyklės ir įdiegtos PWA langus ir atverk dar kartą. Tai atlik **telefone ir kompiuteryje**. Apačioje lieka **2.0.4**; naują paketą atpažinsi iš išplėsto `Maintenance → Add task → Task type` sąrašo ir atskirų `Date` / `Mileage` varnelių. Naršyklės duomenų nevalyk ir PWA neišdiek.
+4. Sulauk žalio `Actions → Publish Kairo Ride` rezultato. Atnaujink puslapį su internetu, kad atsisiųstų naują programą, tada uždaryk visus Kairo Ride naršyklės ir įdiegtos PWA langus ir atverk dar kartą. Tai atlik **telefone ir kompiuteryje**. Apačioje turi būti **2.0.5**. Prieš keisdamas ratų statusus šią versiją patikrink abiejuose įrenginiuose: ankstesnis kodas naujų būsenos laukų neatpažįsta. Naršyklės duomenų nevalyk ir PWA neišdiek.
 5. `Settings → Google Drive → Automatic sync` numatytai įjungtas. Jei prašoma, paspausk **Refresh access**. Esamos duomenų bazės iš naujo importuoti nereikia.
 
-### Kas pasikeitė
+### Kas pasikeitė 2.0.5
+
+- Matomi `reading / readings` pavadinimai pakeisti į `record / records`. Excel eksporte lapas vadinasi `Records`; seni `Readings` eksportai vis dar importuojami. Vidinis istorijos formatas nepakeistas.
+- Hero: tarp dviejų horizontalių linijų rodoma `All vehicles` arba pasirinktos priemonės pavadinimas. Tai keturių mažųjų statistikos blokų filtras. Viršutinis vidurkis ir toliau skaičiuoja visas priemones per visą laiką.
+- Garaže kiekvienas ratas turi paspaudžiamą statusą. Paspausk jį arba redagavimo pieštuką, pasirink `Vehicle status` ir išsaugok.
+- `Active` ir `Spare` leidžia naujus įrašus. `Active!` taip pat leidžia, bet rodo priežiūros priminimą. `Critical`, `In repair` ir `Sold` naujų įrašų neleidžia. Istorija, statistika ir senų įrašų redagavimas išlieka.
+- `Active!` atsiranda automatiškai, kai aktyviam arba atsarginiam ratui priežiūra tampa aktuali pagal datą, priminimo terminą ar odometrą. Atlikus darbą / perkėlus terminą automatinis perspėjimas dingsta. Jis niekada neaktyvuoja sugedusio, remontuojamo ar parduoto rato.
+- `Active!` gali pasirinkti ir ranka: įrašyk priminimą arba turėk neužbaigtą tam ratui priskirtą priežiūros užduotį. Rankinis statusas lieka, kol jį pakeiti pats. Būsimų užduočių vien buvimas automatinio perspėjimo nesukelia.
+- Priminimas rodomas kiekvieną kartą atveriant garažą bei pradedant naują įrašą / pasirenkant tokį ratą. Jame yra konkretūs darbai, terminai ir odometro tikslai. Jis nepriklauso nuo `Enable local reminders` ir sistemos pranešimų leidimo.
+- `Settings → Feedback & suggestions` pateiktas el. paštas `kairosbytomas@gmail.com`.
+
+Google ir GitHub nustatymų keisti nereikia. Jeigu Client ID laikai tiesiogiai `public/kairo-config.json`, o ne GitHub `GOOGLE_CLIENT_ID` kintamajame, perrašydamas išsaugok savo reikšmę. Šiam atnaujinimui jokių senų failų šalinti nereikia.
+
+**Patikra po įdiegimo:** nustatyk neveikiantį ratą į `Critical`, įsitikink, kad seni įrašai matomi, o naujo pridėti neleidžia. Kitam ratui pasirink `Active!` su pastaba, du kartus atverk garažą ir pabandyk pradėti naują įrašą — priminimas turi pasirodyti kiekvieną kartą. Patikrink Hero filtrą ir statuso atsiradimą kitame įrenginyje po sinchronizavimo.
+
+### Išlieka ankstesni 2.0.4 patobulinimai
 
 - Analitikoje paslėptos priemonės nebeužima nei laiko, nei aukščio skalės. Keičiant priartintą intervalą persiskaičiuoja ir vertikali skalė. `Fit` grąžina visą pasirinktos priemonės istoriją; stulpelių skalė išlieka nuo nulio.
 - Sinchronizavimas siunčia pakeitimus po maždaug 1,5 s, tikrina kito įrenginio pakeitimus kas minutę, grįžus į programą ir atsiradus internetui. Laikinos tinklo / Google klaidos kartojamos retėjančiais bandymais. Nepakitęs `database.json` kas minutę neperrašomas.
@@ -48,7 +63,7 @@ Visiškai uždarytos arba paslėptos PWA fono darbo negarantuojame. Po perkrovim
 
 ## 1. Pasiruošk paketą
 
-1. Atsisiųsk ir išskleisk `Kairo-Ride-2.0.4.zip` kompiuteryje.
+1. Atsisiųsk ir išskleisk `Kairo-Ride-2.0.5.zip` kompiuteryje.
 2. Atverk išskleistą `Kairo-Ride` aplanką. Jame turi matytis `package.json`, `app`, `components`, `public` ir kiti failai.
 3. **Nekelk į GitHub paties ZIP.** Reikia jo viduje esančių failų ir aplankų.
 4. Nepridėk savo Excel, JSON duomenų kopijų, nuotraukų, video, GPX ar prisijungimo paslapčių. `.gitignore` nėra apsauga nuo rankinio jų įkėlimo per svetainę.
@@ -73,7 +88,7 @@ Jei atnaujini jau sukurtą repozitoriją ir naršyklė paslėptą failą atmeta,
 
 **Prieš kiekvieną atnaujinimą visko trinti nereikia.** Į tą patį kelią įkeltas tokio pat pavadinimo failas naujame commit'e atnaujinamas. Tačiau failas, kurio naujame pakete nebėra, savaime neištrinamas ir lieka repozitorijoje.
 
-Šiam 2.0.4 paketui:
+Šiam 2.0.5 paketui:
 
 - įkelk išskleisto `Kairo-Ride` aplanko turinį į repozitorijos šaknį ir patvirtink pakeitimus;
 - senų `app`, `components`, `lib`, `public` ar kitų katalogų prieš tai netrink;
@@ -85,7 +100,7 @@ Jei atnaujini jau sukurtą repozitoriją ir naršyklė paslėptą failą atmeta,
 1. Vieną kartą pasirink `File → Clone repository` ir atsisiųsk savo `Kairo-Ride` repozitoriją.
 2. Nukopijuok naujo paketo turinį į tą vietinį aplanką ir sutik pakeisti tokio pat pavadinimo failus.
 3. Jei leidimo pastabose nurodyta pašalinti seną failą, ištrink jį tame vietiniame aplanke. **Neliesk `.git` katalogo.**
-4. GitHub Desktop lange peržiūrėk `Changes`, įrašyk, pvz., `Update Kairo Ride to 2.0.4`, pasirink `Commit to main`, tada `Push origin`.
+4. GitHub Desktop lange peržiūrėk `Changes`, įrašyk, pvz., `Update Kairo Ride to 2.0.5`, pasirink `Commit to main`, tada `Push origin`.
 
 GitHub istorija leidžia grįžti prie ankstesnio commit'o, todėl viso projekto ištrynimas prieš kiekvieną pataisą tik padidina riziką netyčia praleisti failą.
 

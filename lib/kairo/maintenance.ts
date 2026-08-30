@@ -53,7 +53,7 @@ export const MAINTENANCE_TEMPLATES:readonly MaintenanceTemplate[]=[
     id:"fasteners_initial",category:"custom",group:"inspection",
     title:copy("Initial structural fastener check","Pirmoji konstrukcinių tvirtinimų patikra"),
     cadence:copy("After the first 100–300 km; one-off break-in check","Po pirmųjų 100–300 km; vienkartinė pradinė patikra"),
-    guidance:copy("Use only when appropriate for a new vehicle's break-in. The suggested target is the current reading + 100 km; adjust it if some break-in distance is already covered. Use specified torque. Afterwards, add the regular fastener inspection.","Tinka naujos priemonės pradinei patikrai. Siūlomas tikslas: dabartinis rodmuo + 100 km; pakoreguok, jei dalis pradinio atstumo jau nuvažiuota. Veržk tik numatytu momentu. Vėliau pridėk periodinę tvirtinimų patikrą."),
+    guidance:copy("Use only when appropriate for a new vehicle's break-in. The suggested target is the current record + 100 km; adjust it if some break-in distance is already covered. Use specified torque. Afterwards, add the regular fastener inspection.","Tinka naujos priemonės pradinei patikrai. Siūlomas tikslas: dabartinis rodmuo + 100 km; pakoreguok, jei dalis pradinio atstumo jau nuvažiuota. Veržk tik numatytu momentu. Vėliau pridėk periodinę tvirtinimų patikrą."),
     interval:{km:100},repeat:false,
   },
   {
@@ -93,7 +93,7 @@ export const MAINTENANCE_TEMPLATES:readonly MaintenanceTemplate[]=[
   },
   {
     id:"battery",category:"battery",group:"inspection",
-    title:copy("Review battery and BMS readings","Baterijos ir BMS rodiklių peržiūra"),
+    title:copy("Review battery and BMS records","Baterijos ir BMS rodiklių peržiūra"),
     cadence:copy("1,000 km or 3 months","1 000 km arba 3 mėn."),
     guidance:copy("Review charging changes, errors, temperatures and cell-group voltage differences if available. Do not open the battery. Mileage alone does not determine replacement.","Peržiūrėk įkrovimo pokyčius, klaidas, temperatūras ir elementų grupių įtampų skirtumus, jei prieinami. Baterijos neatidarinėk. Vien rida nenustato keitimo būtinybės."),
     interval:{km:1000,months:3},repeat:true,

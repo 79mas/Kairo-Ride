@@ -2,7 +2,7 @@
 
 ![Kairo Ride icon](public/icon-192.png)
 
-**Version 2.0.4 · includes the maintenance-template update**
+**Version 2.0.5 · vehicle status and maintenance reminders**
 
 A privacy-first, English-first Progressive Web App for electric unicycle riders. Track odometer history, individual rides, multi-day trips, vehicles, gear, maintenance, insurance and original ride files from both phone and desktop.
 
@@ -15,7 +15,7 @@ Kairo Ride works offline, can sync directly to each user's Google Drive, and exp
 | Dashboard | Long-term km/day, km/week or km/month averages; Fleet cards; and a swipeable daily chart with interactive vehicle toggles |
 | Rides | Compact sortable table on phone and desktop, top horizontal scroll control, pinned date/header, and estimated km/d |
 | Trips | Groups rides and files into single-day or multi-day journeys |
-| Garage | Manages multiple electric unicycles with independent odometer histories |
+| Garage | Manages multiple electric unicycles, their status, maintenance reminders and independent odometer histories |
 | Maintenance | 20 inspection, condition-based work, insurance and custom templates; editable date / odometer autofill, independent reminder checkboxes and recurring checks |
 | Gear | Tracks helmets, footwear, protection, clothing, cameras, Cardo units, accessories and “Used with” relationships |
 | Analytics | Draggable and zoomable cumulative, monthly and daily charts; both axes fit the visible vehicles and the selected zoom range |
@@ -23,6 +23,32 @@ Kairo Ride works offline, can sync directly to each user's Google Drive, and exp
 | Data tools | Imports supported backups and exports JSON or a real `.xlsx` workbook |
 
 The interface uses a fixed black/orange theme with `#f16305` as the primary colour and is responsive on phones and desktop browsers. English is the default language; Lithuanian can be selected in Settings. The included web app manifest, service worker, favicons, Apple touch icon, and maskable icons make it installable as a PWA.
+
+## New in 2.0.5
+
+- User-facing odometer terminology is **record / records**, including the Excel **Records** report sheet.
+- The Hero has a second horizontal divider, with **All vehicles** or the selected vehicle between the two lines. This label applies to the four secondary totals. The top km/d, km/w or km/m average still covers all vehicles and all time.
+- Garage displays an editable status badge for every vehicle. Click the badge or edit the vehicle and use **Vehicle status**.
+- Settings includes **Feedback & suggestions** with a direct email link.
+
+| Vehicle status | New records | Existing archive |
+| --- | --- | --- |
+| Active | Allowed | Kept |
+| Active! | Allowed, with a maintenance popup | Kept |
+| Critical | Blocked | Kept and editable |
+| In repair | Blocked | Kept and editable |
+| Spare | Allowed | Kept |
+| Sold | Blocked | Kept and editable |
+
+An Active or Spare vehicle automatically displays **Active!** when one of its maintenance tasks is due, overdue, or within its configured date-reminder window. Completion or rescheduling clears this automatic flag back to the saved status. Future tasks alone do not flag the vehicle.
+
+You can also select **Active!** manually. Add a short maintenance reminder, or link an unfinished maintenance task to the vehicle. The popup lists the actual tasks, their date / odometer targets and the manual note. A manually selected flag stays until you change the status; it is not cleared automatically.
+
+The popup appears on every Garage visit and whenever you start a new record with, or select, the affected vehicle. It is separate from optional OS notifications and does not need notification permission. It can be dismissed and times out after 15 seconds. Critical, In repair and Sold are never automatically reactivated by maintenance.
+
+All vehicles remain in Fleet, statistics, filters and historical rides. You may edit an existing archived record or add ride details to a legacy record, but cannot create a new record or move a record onto a different inactive vehicle. Historical imports, sync and recovery still work. Reactivate a vehicle in Garage when it is ready for new records. Offline devices only know the status they last synchronized.
+
+The internal history key `reading` is intentionally unchanged to preserve old backups and operation IDs. Older Excel exports with a `Readings` report sheet still import. The Wheels export includes current status, saved status and manual reminder text; History remains the authoritative recovery data. Update **all devices to 2.0.5 before saving vehicle statuses**: older strict validators do not understand the new fields.
 
 ## Privacy and storage model
 
@@ -106,7 +132,7 @@ Both devices need to run the app with valid access at some point for changes to 
 
 Automatic synchronization is **not automatic Google reauthorization**. The access token stays only in memory. Reloading the app or token expiry requires the user to press **Refresh access**. The app never opens sign-in popups from a background timer. Background/closed mobile apps are not guaranteed to keep running. [Google's browser token model](https://developers.google.com/identity/oauth2/web/guides/use-token-model).
 
-## Reading the km/d estimate
+## Understanding the km/d estimate
 
 The Rides table calculates `distance / calendar days since the previous entry for that vehicle`. Odometer-derived distances use the previous **odometer** date, because the odometer delta covers that entire interval. The first interval starts at the vehicle's baseline date. Same-day intervals use one day; unknown distances remain blank.
 
@@ -118,7 +144,7 @@ On phones, optional columns that contain no information are hidden. Zero, missin
 
 Open **Garage → Maintenance → Add task**:
 
-1. Choose a task type and vehicle. The name, suggested date and absolute odometer target fill automatically. The date starts from the day the form was opened; mileage starts from that vehicle's latest saved reading (or its baseline if it has no readings). Update Rides first if its odometer is stale.
+1. Choose a task type and vehicle. The name, suggested date and absolute odometer target fill automatically. The date starts from the day the form was opened; mileage starts from that vehicle's latest saved record (or its baseline if it has no records). Update Rides first if its odometer is stale.
 2. Use the separate **Date** and **Mileage** checkboxes. Enable either or both; when both are enabled, the first threshold reached triggers attention. Both targets remain editable. Saved targets do not keep moving forward when new rides arrive.
 3. Optionally change the advance notice in days. Inspection templates start with zero days' advance notice to avoid a new weekly check being immediately due; insurance starts with 14 days.
 4. Periodic templates can **Schedule the next check when completed**. Edit the repeat distance and time (days or calendar months), or disable repetition. The completed record and its successor are saved together in one history operation.
@@ -150,7 +176,7 @@ Open Kairo Ride from the new home-screen icon. A browser and an installed PWA ma
 The data tools can export:
 
 - A JSON backup containing the complete Kairo Ride operation history.
-- An Excel workbook with `Wheels`, `Readings`, `Rides`, `Trips`, `Gear`, `Maintenance`, `Attachments`, `History`, and `KairoInfo` sheets.
+- An Excel workbook with `Wheels`, `Records`, `Rides`, `Trips`, `Gear`, `Maintenance`, `Attachments`, `History`, and `KairoInfo` sheets.
 
 The importer accepts Kairo Ride JSON and Excel backups, plus the supported legacy PWA workbook format containing `Rides` and `Models` sheets. Re-importing the same backup does not duplicate existing operations.
 
@@ -158,7 +184,7 @@ JSON and Excel backups contain attachment metadata and Drive links, **not the or
 
 ## Important limitations
 
-- Version 2.0.4 is an early product build. The included automated suite passed, but real Google OAuth, the final GitHub Pages deployment, and physical-phone installation must still be verified with the owner's accounts and devices.
+- Version 2.0.5 is an early product build. Automated checks cover domain logic, storage, recovery, rendered UI contracts and static PWA output. Real Google OAuth, the final GitHub Pages deployment, visual layout and physical-phone interaction must still be verified with the owner's accounts and devices.
 - A single attachment is limited to 512 MB. An imported backup is limited to 25 MB. The browser may impose a lower practical storage limit.
 - Large uploads are not guaranteed to continue after the PWA is closed or suspended. Keep the app open until synchronization finishes.
 - Maintenance and insurance notifications are local. They are checked while the PWA is open or active; a fully closed mobile PWA cannot guarantee a scheduled alert without a push-notification server.
@@ -224,20 +250,26 @@ For browser-only updates, upload the package contents to the repository root and
 
 For repeated updates, GitHub Desktop is safer and easier to review: clone the repository once, copy the new package contents over the local clone, review modified and deleted files, commit, and choose [**Push origin**](https://docs.github.com/en/desktop/making-changes-in-a-branch/pushing-changes-to-github-from-github-desktop). Never delete the local `.git` directory.
 
-Version 2.0.4 does not require deleting any application directory or changing OAuth configuration. This archive includes all earlier 2.0.4 fixes plus the maintenance extension. Upload the whole package to include the new form, shared fields, maintenance/notification helpers and tests, alongside the earlier ride-table, charts and sync files. The obsolete optional `.kairo-export` marker is no longer included; if it exists in a repository, it is not published and may be removed separately.
+Version 2.0.5 does not require deleting any application directory or changing OAuth configuration. This archive includes the earlier 2.0.4 fixes and maintenance templates. Upload the whole package, including both new `vehicle-status` modules. Existing deployment settings and repository variables remain unchanged. If you configured the public client ID directly in `public/kairo-config.json` instead of a repository variable, preserve that value when replacing the file. No application files need to be removed for this patch.
 
-Before updating, export a JSON backup and preserve any unsynced original attachments. Keep the same site URL. Wait for the successful deployment, reload the app while online to fetch the update, close **all** Kairo Ride tabs/windows on each device, and reopen. The service worker intentionally waits for old windows to close before activating its new cache. Do not clear browser data or uninstall the PWA to update: this could discard unsynced records. The footer stays **2.0.4**; confirm the extended **Task type** menu and separate **Date / Mileage** checkboxes to distinguish this package from the earlier 2.0.4 build. Refresh Google access if asked. Existing records do not need reimporting; database names and history version are unchanged.
+Before updating, export a JSON backup and preserve any unsynced original attachments. Keep the same site URL. Wait for the successful deployment, reload the app while online to fetch the update, close **all** Kairo Ride tabs/windows on each device, and reopen. The service worker intentionally waits for old windows to close before activating its new cache. Do not clear browser data or uninstall the PWA to update: this could discard unsynced records. Confirm **2.0.5** in the footer on both phone and computer before editing a vehicle status. Refresh Google access if asked. Existing records do not need reimporting; database names and history version are unchanged.
 
 ## Release checklist
 
 Before using Kairo Ride as the primary archive:
 
-1. Add a test vehicle, odometer reading, ride, trip, linked gear items, maintenance/insurance item, and small attachment.
+1. Add a test vehicle, odometer record, ride, trip, linked gear items, maintenance/insurance item, and small attachment.
 2. Export both JSON and Excel and inspect the records.
 3. Connect Google Drive, finish synchronization, and open the original attachment in Drive.
 4. Sign in from a second device using the same site URL and Google account.
 5. Install the PWA and test creating an offline record, then reconnect and sync.
 6. Keep the previous database and original files until all migrated data has been verified.
+7. Test all six vehicle statuses, repeat Garage visits, new-record vehicle changes, archive editing and automatic maintenance attention. Check that a blocked new record does not leave an empty trip behind.
+8. Change the Hero vehicle filter: its divider label and four totals should change, while the main all-time average stays the same.
+
+## Feedback
+
+We welcome your feedback, comments and suggestions at [kairosbytomas@gmail.com](mailto:kairosbytomas@gmail.com).
 
 ## License
 

@@ -1,5 +1,7 @@
 import { KINDS, gearCategoryLabels, gearStatusLabels, maintenanceCategoryLabels, makeOperation, parseOperation, project, type Kind, type Operation, type Reading, type Wheel, wheelStats } from "./domain";
 import {templateForMaintenance} from "./maintenance";
+import {storedWheelStatus, wheelStatusLabels} from "./domain";
+import {effectiveWheelStatus} from "./vehicle-status";
 
 type Cell = string | number | boolean | null;
 export type Workbook = Record<string, Cell[][]>;
@@ -146,7 +148,7 @@ export async function workbookImport(book:Workbook, timeZone:string):Promise<Imp
       if(chunks.some((c,i)=>c.part!==i))throw new Error("The History sheet is missing part of the record history.");
       const op=parseOperation(JSON.parse(chunks.map(c=>c.text).join("")));if(op.id!==id)throw new Error("A History record ID does not match its content.");return op;
     });
-    if(!operations.length && ["Wheels","Readings","Rides","Trips","Gear","Maintenance","Attachments"].some(k=>(book[k]?.length??0)>1))throw new Error("This export is missing recovery history. Use a JSON backup.");
+    if(!operations.length && ["Wheels","Records","Readings","Rides","Trips","Gear","Maintenance","Attachments"].some(k=>(book[k]?.length??0)>1))throw new Error("This export is missing recovery history. Use a JSON backup.");
     const state=project(operations);
     return {operations,warnings:["The immutable History sheet is imported. Manual edits to the other Excel sheets are not written into record history."],counts:Object.fromEntries(KINDS.map(k=>[k,state[k].length])) as Record<Kind,number>,source:"Kairo Ride export"};
   }
@@ -167,9 +169,9 @@ export async function workbookImport(book:Workbook, timeZone:string):Promise<Imp
     const id=await stableId("legacy-reading",rawId);if(existing.has(id))throw new Error(`Rides row ${i+2} repeats an ID.`);existing.add(id);
     reading.push({id,wheelId,at:zonedInstant(excelDate(row[dateCol]),timeZone),odometerKm:num(row[odoCol],`Rides ${i+2}`),notes:String(row[noteCol]??""),sourceOrder:i+2});
   }
-  for(const wheel of wheels){const stats=wheelStats(wheel,reading);if(stats.warnings)warnings.push(`${wheel.name}: review ${stats.warnings} readings for their time or odometer sequence.`);}
-  warnings.push("Baseline odometers and entered readings are imported. Old calculated Km / Total km columns are ignored and distances are recalculated.");
-  warnings.push(`Excel wall-clock times are interpreted in ${timeZone}. Readings are not turned into invented ride records.`);
+  for(const wheel of wheels){const stats=wheelStats(wheel,reading);if(stats.warnings)warnings.push(`${wheel.name}: review ${stats.warnings} records for their time or odometer sequence.`);}
+  warnings.push("Baseline odometers and entered records are imported. Old calculated Km / Total km columns are ignored and distances are recalculated.");
+  warnings.push(`Excel wall-clock times are interpreted in ${timeZone}. Odometer records are not turned into invented rides.`);
   const changes=[...wheels.map(value=>({kind:"wheel" as const,value,entityId:value.id})),...reading.map(value=>({kind:"reading" as const,value,entityId:value.id}))];
   const operation=makeOperation(project([]),"legacy-import",changes);
   // Same source values produce the same import operation: importing twice is idempotent.
@@ -182,8 +184,8 @@ export function exportWorkbook(operations:Operation[]):Workbook{
   const s=project(operations);const names=new Map(s.wheel.map(w=>[w.id,w.name]));const trips=new Map(s.trip.map(t=>[t.id,t.name]));const gearNames=new Map(s.gear.map(g=>[g.id,g.name]));
   return {
     KairoInfo:[["Format","Note"],["kairo-ride-v1","Odometer intervals and manually entered ride distances are never added together."],["Recovery","History is the exact recovery source; editing the other sheets does not change History."],["Attachments","Original files are not embedded in Excel. Drive links work for the owner."],["Time","ISO dates ending in Z are UTC. Baseline and trip dates are calendar dates."],["History","Use JSON for very large histories; an Excel cell is limited to 32767 characters."]],
-    Wheels:[["ID","Name","Baseline km","Baseline date","Color","Notes"],...s.wheel.map(w=>[w.id,w.name,w.baselineKm,w.baselineDate,w.color,w.notes])],
-    Readings:[["ID","Wheel ID","Wheel","At (UTC)","Odometer km","Notes"],...s.reading.map(r=>[r.id,r.wheelId,names.get(r.wheelId)??"",r.at,r.odometerKm,r.notes])],
+    Wheels:[["ID","Name","Baseline km","Baseline date","Color","Notes","Status","Saved status","Maintenance reminder"],...s.wheel.map(w=>[w.id,w.name,w.baselineKm,w.baselineDate,w.color,w.notes,wheelStatusLabels[effectiveWheelStatus(w,s)],wheelStatusLabels[storedWheelStatus(w)],w.statusNote??""])],
+    Records:[["ID","Wheel ID","Wheel","At (UTC)","Odometer km","Notes"],...s.reading.map(r=>[r.id,r.wheelId,names.get(r.wheelId)??"",r.at,r.odometerKm,r.notes])],
     Rides:[["ID","Name","Wheel ID","Wheel","At (UTC)","Distance km","Trip ID","Trip","Notes","Local date","Time zone"],...s.ride.map(r=>[r.id,r.name,r.wheelId,names.get(r.wheelId)??"",r.at,r.distanceKm,r.tripId,trips.get(r.tripId??"")??"",r.notes,r.localDate??"",r.timeZone??""])],
     Trips:[["ID","Name","Start date","End date","Notes"],...s.trip.map(t=>[t.id,t.name,t.startDate,t.endDate,t.notes])],
     Gear:[["ID","Name","Category","Status","Brand","Model","Size","Purchased on","Used with IDs","Used with","Notes"],...s.gear.map(g=>[g.id,g.name,gearCategoryLabels[g.category],gearStatusLabels[g.status],g.brand,g.model,g.size,g.purchasedOn,(g.usedWithGearIds??[]).join(", "),(g.usedWithGearIds??[]).map(id=>gearNames.get(id)??id).join(", "),g.notes])],
