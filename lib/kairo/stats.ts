@@ -6,8 +6,10 @@ export type PeriodPoint={date:string;label:string;total:number;[wheelId:string]:
 export type AverageUnit="day"|"week"|"month";
 export type RideEntry={
   key:string;ride?:Ride;reading?:Reading;at:string;wheelId:string;name:string;tripId:string|null;
-  odometerKm:number|null;distanceKm:number|null;notes:string;warning:string|null;
+  odometerKm:number|null;distanceKm:number|null;intervalDays:number|null;kmPerDay:number|null;notes:string;warning:string|null;
 };
+export type RideSortKey="date"|"name"|"wheel"|"odometer"|"distance"|"daily"|"trip"|"notes"|"files";
+export type SeriesPoint={date:string;label?:string;total:number;[key:string]:string|number|undefined};
 
 const pad=(n:number)=>String(n).padStart(2,"0");
 export const dateKey=(d:Date)=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
@@ -26,13 +28,40 @@ export function rideEntries(state:State):RideEntry[]{
     if(!reading)reading=(byMoment.get(`${ride.wheelId}|${ride.at}`)??[]).find(item=>available.has(item.id));
     if(reading)available.delete(reading.id);
     const interval=reading?intervalByReading.get(reading.id):undefined;
-    entries.push({key:`ride:${ride.id}`,ride,reading,at:ride.at,wheelId:ride.wheelId,name:ride.name,tripId:ride.tripId,odometerKm:reading?.odometerKm??null,distanceKm:reading?interval?.distance??null:ride.distanceKm,notes:ride.notes||reading?.notes||"",warning:interval?.warning??null});
+    entries.push({key:`ride:${ride.id}`,ride,reading,at:ride.at,wheelId:ride.wheelId,name:ride.name,tripId:ride.tripId,odometerKm:reading?.odometerKm??null,distanceKm:reading?interval?.distance??null:ride.distanceKm,intervalDays:null,kmPerDay:null,notes:ride.notes||reading?.notes||"",warning:interval?.warning??null});
   }
   for(const reading of state.reading)if(available.has(reading.id)){
     const interval=intervalByReading.get(reading.id);
-    entries.push({key:`reading:${reading.id}`,reading,at:reading.at,wheelId:reading.wheelId,name:"",tripId:null,odometerKm:reading.odometerKm,distanceKm:interval?.distance??null,notes:reading.notes,warning:interval?.warning??null});
+    entries.push({key:`reading:${reading.id}`,reading,at:reading.at,wheelId:reading.wheelId,name:"",tripId:null,odometerKm:reading.odometerKm,distanceKm:interval?.distance??null,intervalDays:null,kmPerDay:null,notes:reading.notes,warning:interval?.warning??null});
+  }
+  // Use calendar-day gaps, not 24-hour periods: DST must not turn seven days into 6.96.
+  // An odometer delta covers the interval from the previous odometer record, even
+  // if a distance-only ride was entered in between. Same-day intervals use one day.
+  for(const wheel of state.wheel){
+    let previousDate=wheel.baselineDate,previousOdometerDate=wheel.baselineDate;
+    const ordered=entries.filter(entry=>entry.wheelId===wheel.id).sort((a,b)=>Date.parse(a.at)-Date.parse(b.at)||(a.reading?.sourceOrder??0)-(b.reading?.sourceOrder??0)||a.key.localeCompare(b.key,"en"));
+    for(const entry of ordered){
+      const day=entry.ride?.localDate??dateKey(new Date(entry.at)),from=entry.reading?previousOdometerDate:previousDate;
+      const days=Math.round((Date.parse(`${day}T12:00:00Z`)-Date.parse(`${from}T12:00:00Z`))/86_400_000);
+      entry.intervalDays=days>=0?Math.max(1,days):null;
+      entry.kmPerDay=entry.distanceKm!==null&&entry.intervalDays!==null?roundKm(entry.distanceKm/entry.intervalDays):null;
+      previousDate=day;if(entry.reading)previousOdometerDate=day;
+    }
   }
   return entries.sort((a,b)=>Date.parse(b.at)-Date.parse(a.at)||a.key.localeCompare(b.key,"en"));
+}
+
+export function sortRideEntries(entries:RideEntry[],state:State,key:RideSortKey,direction:"asc"|"desc"){
+  const wheelNames=new Map(state.wheel.map(w=>[w.id,w.name])),tripNames=new Map(state.trip.map(t=>[t.id,t.name])),fileCounts=new Map<string,number>();
+  for(const file of state.attachment)if(file.ownerKind==="ride")fileCounts.set(file.ownerId,(fileCounts.get(file.ownerId)??0)+1);
+  const value=(entry:RideEntry):string|number=>key==="date"?Date.parse(entry.at):key==="name"?entry.name:key==="wheel"?wheelNames.get(entry.wheelId)??"":key==="odometer"?entry.odometerKm??-1:key==="distance"?entry.distanceKm??-1:key==="daily"?entry.kmPerDay??-1:key==="trip"?tripNames.get(entry.tripId??"")??"":key==="notes"?(hasCellValue(entry.notes)?entry.notes.trim().length:-1):entry.ride?fileCounts.get(entry.ride.id)??0:0;
+  return [...entries].sort((a,b)=>{const av=value(a),bv=value(b),comparison=typeof av==="number"&&typeof bv==="number"?av-bv:String(av).localeCompare(String(bv),"en",{numeric:true,sensitivity:"base"});return (direction==="asc"?comparison:-comparison)||Date.parse(b.at)-Date.parse(a.at)||a.key.localeCompare(b.key,"en");});
+}
+
+/** Blank and placeholder cells do not add mobile columns or visible filler. */
+export function hasCellValue(value:string|number|null|undefined){
+  if(typeof value==="number")return Number.isFinite(value)&&value!==0;
+  return typeof value==="string"&&!!value.trim()&&!/^[\-–—]+$/.test(value.trim());
 }
 
 export function readingForRide(state:State,ride:Ride){return rideEntries(state).find(entry=>entry.ride?.id===ride.id)?.reading;}
@@ -104,24 +133,45 @@ export function averageDistance(state:State,unit:AverageUnit,now=new Date()){
   return roundKm(total/(elapsedDays/periodDays));
 }
 
-export function monthlySeries(state:State,locale="en-US"){
-  const events=distanceEvents(state),keys=[...new Set(events.map(e=>e.date.slice(0,7)))].sort();
+export function monthlySeries(state:State,locale="en-US",wheelIds=state.wheel.map(w=>w.id)):SeriesPoint[]{
+  const selected=new Set(wheelIds),events=distanceEvents(state).filter(e=>selected.has(e.wheelId)),keys=[...new Set(events.map(e=>e.date.slice(0,7)))].sort();
   return keys.map(key=>{
-    const [year,month]=key.split("-").map(Number),point:Record<string,string|number>={date:key,label:new Intl.DateTimeFormat(locale,{month:"short",year:"2-digit"}).format(new Date(year,month-1,1)),total:0};
+    const [year,month]=key.split("-").map(Number),point:SeriesPoint={date:key,label:new Intl.DateTimeFormat(locale,{month:"short",year:"2-digit"}).format(new Date(year,month-1,1)),total:0};
     for(const e of events.filter(item=>item.date.startsWith(key))){point[e.wheelId]=roundKm(Number(point[e.wheelId]??0)+e.distance);point.total=roundKm(Number(point.total)+e.distance);}
     return point;
   });
 }
 
-export function cumulativeSeries(state:State){
-  const events=distanceEvents(state),byDay=new Map<string,Map<string,number>>();
+export function cumulativeSeries(state:State,wheelIds=state.wheel.map(w=>w.id)):SeriesPoint[]{
+  const selected=new Set(wheelIds),events=distanceEvents(state).filter(e=>selected.has(e.wheelId)),byDay=new Map<string,Map<string,number>>();
   for(const e of events){const row=byDay.get(e.date)??new Map<string,number>();row.set(e.wheelId,roundKm((row.get(e.wheelId)??0)+e.distance));byDay.set(e.date,row);}
   const cumulative=new Map<string,number>();
   return [...byDay].sort(([a],[b])=>a.localeCompare(b)).map(([date,row])=>{
-    const point:Record<string,string|number>={date,total:0};
-    for(const wheel of state.wheel){cumulative.set(wheel.id,roundKm((cumulative.get(wheel.id)??0)+(row.get(wheel.id)??0)));point[wheel.id]=cumulative.get(wheel.id)!;point.total=roundKm(Number(point.total)+Number(point[wheel.id]));}
+    const point:SeriesPoint={date,total:0};
+    for(const id of wheelIds){cumulative.set(id,roundKm((cumulative.get(id)??0)+(row.get(id)??0)));point[id]=cumulative.get(id)!;point.total=roundKm(point.total+Number(point[id]));}
     return point;
   });
+}
+
+export function dailySeries(state:State,wheelIds=state.wheel.map(w=>w.id)):SeriesPoint[]{
+  const selected=new Set(wheelIds),byDay=new Map<string,SeriesPoint>();
+  for(const event of distanceEvents(state))if(selected.has(event.wheelId)){
+    const point=byDay.get(event.date)??{date:event.date,total:0};
+    point[event.wheelId]=roundKm(Number(point[event.wheelId]??0)+event.distance);point.total=roundKm(point.total+event.distance);byDay.set(event.date,point);
+  }
+  return [...byDay.values()];
+}
+
+/** Fit only the visible series in the current zoom window, never hidden totals.
+ * Bars retain a truthful zero baseline; lines may zoom their vertical range. */
+export function fitChartDomain(points:SeriesPoint[],wheelIds:string[],kind:"line"|"stacked"):[number,number]{
+  if(!points.length||!wheelIds.length)return [0,1];
+  const values=kind==="stacked"?points.map(point=>wheelIds.reduce((sum,id)=>sum+(Number(point[id])||0),0)):points.flatMap(point=>wheelIds.map(id=>Number(point[id]??0))).filter(Number.isFinite);
+  let low=Infinity,high=-Infinity;for(const value of values){low=Math.min(low,value);high=Math.max(high,value);}
+  if(!Number.isFinite(high)||high<=0)return [0,1];
+  if(kind==="stacked")return [0,high*1.05];
+  const padding=(high-low||high)*.05;
+  return [Math.max(0,low-padding),high+padding];
 }
 
 export type MaintenanceStatus="completed"|"overdue"|"due"|"upcoming"|"planned";
@@ -130,6 +180,7 @@ export function maintenanceStatus(item:Maintenance,state:State,now=new Date()):M
   const todayKey=dateKey(now),wheel=item.targetKind==="wheel"?state.wheel.find(w=>w.id===item.targetId):undefined;
   const odometer=wheel?wheelStats(wheel,state.reading).odometerKm:null;
   if(item.dueDate&&item.dueDate<todayKey)return "overdue";
+  if(item.dueOdometerKm!==null&&odometer!==null&&odometer>item.dueOdometerKm)return "overdue";
   if(item.dueOdometerKm!==null&&odometer!==null&&odometer>=item.dueOdometerKm)return "due";
   if(item.dueDate){const reminder=addDays(dateFromKey(item.dueDate),-(item.remindDaysBefore??0));if(dateKey(reminder)<=todayKey)return "due";return "upcoming";}
   if(item.dueOdometerKm!==null&&odometer!==null&&item.dueOdometerKm-odometer<=Math.max(25,(item.repeatKm??0)*.1))return "upcoming";

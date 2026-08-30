@@ -280,11 +280,12 @@ test("a lost event-upload acknowledgement retries with the reserved file ID",asy
 });
 
 function memoryDrive(permissionId){
-  const files=new Map(),sessions=new Map();let counter=0;
+  const files=new Map(),sessions=new Map(),requests=[];let counter=0;
   const next=()=>`drive-file-${String(++counter).padStart(9,"0")}`;
   const create=(meta,content)=>{const id=meta.id??next();const value={...meta,id,content,createdTime:new Date(counter).toISOString()};files.set(id,value);return value;};
   const fetcher=async(raw,options={})=>{
     const url=new URL(raw),method=options.method??"GET",headers=new Headers(options.headers);
+    requests.push({url:raw,method});
     assert.equal(headers.get("Authorization"),"Bearer test-token");
     if(url.pathname.endsWith("/about"))return Response.json({user:{permissionId,emailAddress:"test@example.invalid",displayName:"Test"}});
     if(url.pathname.endsWith("/generateIds"))return Response.json({ids:[next()]});
@@ -319,7 +320,7 @@ function memoryDrive(permissionId){
     if(url.searchParams.get("alt")==="media")return Response.json(file.content);
     return Response.json(file);
   };
-  return {files,fetcher};
+  return {files,fetcher,requests};
 }
 
 test("complete Drive protocol stores a trip original and reconstructs an independent replica from immutable history",async()=>{
@@ -335,5 +336,31 @@ test("complete Drive protocol stores a trip original and reconstructs an indepen
   const replica=`replica-${crypto.randomUUID()}`;await client.pull(replica,()=>{});const copy=await db.loadWorkspace(replica);
   assert.equal(copy.state.trip.length,1);assert.equal(copy.state.ride[0].tripId,trip.id);assert.equal(copy.state.attachment[0].driveId,saved.driveId);assert.equal(copy.blobs.length,0);assert.equal(d.wheelStats(copy.state.wheel[0],copy.state.reading).trackedKm,23.4);
   assert.deepEqual(copy.state.gear,[gear]);
-  const originalCount=remote.files.size;await client.sync(ns,()=>{});assert.equal(remote.files.size,originalCount);
+  const originalCount=remote.files.size,writes=()=>remote.requests.filter(request=>request.method!=="GET").length,before=writes();
+  await client.sync(ns,()=>{});assert.equal(remote.files.size,originalCount);assert.equal(writes(),before,"unchanged polling must not rewrite the database snapshot");
+  const requestCount=remote.requests.length;await client.sync(ns,()=>{});assert.equal(remote.requests.length-requestCount,3,"steady no-change poll checks account, root and history, not every attachment folder");
+});
+
+test("a sync with no local changes pulls another device's edit and preserves a later conflict",async()=>{
+  const permissionId="990000000002",ns=`google:${permissionId}`,replica=`independent-${crypto.randomUUID()}`,remote=memoryDrive(permissionId),client=new DriveClient("test-token",Date.now()+3600000,remote.fetcher);
+  await db.commit(ns,"wheel",wheel,wheel.id);await client.sync(ns,()=>{});
+  await client.pull(replica,()=>{});
+  await db.commit(replica,"wheel",{...wheel,notes:"Saved on another device"},wheel.id);
+  const history=[...remote.files.values()].find(file=>file.appProperties?.key==="history");
+  await client.push(replica,(await db.loadWorkspace(replica)).pending[0],history.id);
+  assert.equal((await db.loadWorkspace(ns)).pending.length,0);
+  await client.sync(ns,()=>{});assert.equal((await db.loadWorkspace(ns)).state.wheel[0].notes,"Saved on another device");
+  await db.commit(ns,"wheel",{...wheel,notes:"Phone revision"},wheel.id);
+  await db.commit(replica,"wheel",{...wheel,notes:"Computer revision"},wheel.id);
+  await client.sync(ns,()=>{});await client.push(replica,(await db.loadWorkspace(replica)).pending[0],history.id);
+  await client.sync(ns,()=>{});
+  const final=await db.loadWorkspace(ns);assert.equal(final.pending.length,0);assert.equal(final.state.conflicts.length,1);
+  assert.deepEqual(final.state.conflicts[0].revisions.map(revision=>revision.value.notes).sort(),["Computer revision","Phone revision"]);
+  const snapshot=[...remote.files.values()].find(file=>file.name==="database.json");assert.equal(d.project(d.parseBackup(snapshot.content)).conflicts.length,1);
+});
+test("Drive rate-limit 403 is retryable, but storage quota and permissions are not",async()=>{
+  for(const [reason,status]of [["userRateLimitExceeded",429],["rateLimitExceeded",429],["storageQuotaExceeded",403],["insufficientPermissions",403]]){
+    const client=new DriveClient("test-token",Date.now()+3600000,async()=>Response.json({error:{errors:[{reason}]}},{status:403}));
+    await assert.rejects(()=>client.about(),error=>error.status===status);
+  }
 });

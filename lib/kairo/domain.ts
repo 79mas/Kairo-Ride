@@ -50,6 +50,9 @@ export const maintenanceSchema = z.object({
   id, title: name, category: z.enum(MAINTENANCE_CATEGORIES), targetKind: z.enum(["wheel", "gear"]), targetId: id,
   dueDate: day.nullable(), dueOdometerKm: km.nullable(), remindDaysBefore: z.number().int().min(0).max(3650).nullable(),
   repeatKm: km.nullable(), repeatMonths: z.number().int().min(1).max(1200).nullable(), completedAt: instant.nullable(), notes: text,
+  // Optional additions: existing history is parsed without injecting new defaults.
+  templateId: z.string().min(1).max(80).regex(/^[a-zA-Z0-9_-]+$/).optional(),
+  repeatDays: z.number().int().min(1).max(36500).nullable().optional(),
 }).strict();
 export const attachmentSchema = z.object({
   id, ownerKind: z.enum(["ride", "trip"]), ownerId: id,
@@ -215,6 +218,8 @@ export function validateEdit(state: State, kind: Kind, entity: Entity): void {
     if (m.category === "insurance" && !m.dueDate) throw new Error("Insurance requires an expiry date.");
     if (m.targetKind === "gear" && (m.dueOdometerKm !== null || m.repeatKm !== null)) throw new Error("Odometer-based maintenance can only target a vehicle.");
     if (!m.dueDate && m.remindDaysBefore !== null) throw new Error("A date reminder requires a due date.");
+    if (m.repeatDays != null && m.repeatMonths !== null) throw new Error("Choose days or months for repetition, not both.");
+    if (m.repeatKm !== null && m.repeatKm <= 0) throw new Error("A repeat distance must be greater than zero.");
   }
   if (kind === "attachment") {
     const a = entity as Attachment;

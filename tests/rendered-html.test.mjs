@@ -75,3 +75,12 @@ test("worker serves the installed app offline and never removes another project'
   assert.equal(await fetchEvent("/another-project/"),undefined);
   assert.equal(await fetchEvent(asset,"cors",new Headers({Authorization:"Bearer never-cache-me"})),undefined);
 });
+
+test("maintenance notification clicks focus only this project or open its own home page",async()=>{
+  const worker=await readFile(new URL("sw.js",output),"utf8"),handlers={},focused=[],opened=[];let windows=[];
+  const shell=runInNewContext(worker+";({HOME})",{URL,self:{location:{origin},addEventListener:(name,callback)=>{handlers[name]=callback;},clients:{matchAll:async()=>windows,openWindow:async url=>opened.push(url)}}});
+  const click=async()=>{let pending,closed=false;handlers.notificationclick({notification:{data:{url:"https://other.invalid/"},close:()=>{closed=true;}},waitUntil:promise=>{pending=promise;}});await pending;assert.equal(closed,true);};
+  windows=[{url:origin+"/different-project/",focus:()=>focused.push("wrong")},{url:origin+shell.HOME,focus:()=>focused.push("right")}];
+  await click();assert.deepEqual(focused,["right"]);assert.equal(opened.length,0);
+  windows=[];await click();assert.deepEqual(opened,[shell.HOME]);
+});

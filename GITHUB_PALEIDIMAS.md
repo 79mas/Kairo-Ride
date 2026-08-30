@@ -1,12 +1,54 @@
 # Kairo Ride: paleidimas per GitHub
 
-Versija 2.0.3 · 2026-08-29
+Versija 2.0.4 · 2026-08-30 · papildyta Maintenance šablonais
+
+## Trumpai: atnaujinimas iš 2.0.3 arba ankstesnio 2.0.4 paketo
+
+1. Programėlėje atsisiųsk JSON atsarginę kopiją. Neįkeltus originalius priedus išsisaugok atskirai.
+2. Išskleisk `Kairo-Ride-2.0.4.zip` ir įkelk **vidinio `Kairo-Ride` aplanko turinį** į tą pačią GitHub repozitorijos šaknį. Pasirink `Commit changes`. Senų katalogų prieš tai netrink.
+3. Įkelk ir naujus failus iš `components/kairo`, `hooks`, `lib/kairo` bei `tests`. Jau esančių paslėptų konfigūracijos failų keisti nereikia. `GOOGLE_CLIENT_ID` GitHub kintamasis ir esama Google konfigūracija lieka tie patys.
+4. Sulauk žalio `Actions → Publish Kairo Ride` rezultato. Atnaujink puslapį su internetu, kad atsisiųstų naują programą, tada uždaryk visus Kairo Ride naršyklės ir įdiegtos PWA langus ir atverk dar kartą. Tai atlik **telefone ir kompiuteryje**. Apačioje lieka **2.0.4**; naują paketą atpažinsi iš išplėsto `Maintenance → Add task → Task type` sąrašo ir atskirų `Date` / `Mileage` varnelių. Naršyklės duomenų nevalyk ir PWA neišdiek.
+5. `Settings → Google Drive → Automatic sync` numatytai įjungtas. Jei prašoma, paspausk **Refresh access**. Esamos duomenų bazės iš naujo importuoti nereikia.
+
+### Kas pasikeitė
+
+- Analitikoje paslėptos priemonės nebeužima nei laiko, nei aukščio skalės. Keičiant priartintą intervalą persiskaičiuoja ir vertikali skalė. `Fit` grąžina visą pasirinktos priemonės istoriją; stulpelių skalė išlieka nuo nulio.
+- Sinchronizavimas siunčia pakeitimus po maždaug 1,5 s, tikrina kito įrenginio pakeitimus kas minutę, grįžus į programą ir atsiradus internetui. Laikinos tinklo / Google klaidos kartojamos retėjančiais bandymais. Nepakitęs `database.json` kas minutę neperrašomas.
+- Rides telefone ir kompiuteryje yra lentelė. Viršuje – horizontalus slankiklis ir rodyklės; antraštės bei data prisegtos. Telefone slepiami tušti neprivalomi stulpeliai ir nulinės / brūkšnelio langelių reikšmės, išlaikant lygiavimą.
+- `km/d` yra rūšiuojamas atstumo per kalendorinę dieną įvertis tai pačiai priemonei: **70 km / 7 d. = 10 km/d**. Odometro įrašui imamas ankstesnis odometro įrašas; pirmajam – pradinio odometro data. Tos pačios dienos intervalas laikomas viena diena. Tai nėra vieno realaus pasivažinėjimo trukmės matavimas.
+- Maintenance papildyta 20 šablonų, automatiniu datos / odometro tikslo užpildymu, atskiromis priminimų varnelėmis, kartojimu dienomis arba mėnesiais ir likusiu atstumu kortelėje. Datos ir ridos riboms galioja „kas sueina pirmiau“. Ankstesni šio paketo pakeitimai išlieka.
+
+### Kaip naudoti naują Maintenance
+
+1. `Garage → Maintenance → Add task` pasirink `Task type` ir transporto priemonę. Pavadinimas, datos ir ridos tikslai užsipildys pagal pasirinktą šabloną.
+2. `Date` ir `Mileage` yra nepriklausomos varnelės. Gali palikti abi arba vieną; laukelių reikšmes gali keisti. Jei intervalas buvo nurodytas diapazonu, numatytoji yra trumpesnė riba.
+3. Skaičiuojama nuo formos atidarymo dienos ir **paskutinio įrašyto tos priemonės odometro**, o jei rodmenų dar nėra – nuo pradinio rodmens. Programėlė nėra tiesiogiai prijungta prie vienaračio. Jei reikia, pirmiausia atnaujink odometrą Rides skiltyje.
+4. Pavyzdys: **2026-08-30**, odometras **1 346 km**, `Check tire pressure` → data **2026-09-06**, odometras **1 446 km**. Priminimas suveikia pasiekus pirmą ribą.
+5. `Schedule the next check when completed` įjungia kartojimą. Įrašo redagavime pažymėjus `Mark as completed`, atliktas darbas lieka istorijoje, o kita patikra skaičiuojama nuo atlikimo dienos ir tuo metu įrašyto odometro. Draudimo kartojimas yra išimtis: naudojama polise įvesta galiojimo pabaiga; naują tikrą datą visada patikrink.
+6. `Notes / actual condition` įrašyk rastus pažeidimus, nusidėvėjimą, matavimo rezultatus ar atliktus darbus. Rodomas rekomenduojamas intervalas nėra fizinės būklės patvirtinimas.
+7. `Settings → Maintenance reminders → Enable local reminders` įjungia neprivalomus sistemos pranešimus. Priežiūros būsena programoje rodoma ir be šio leidimo. Telefonams naudojamas PWA pranešimų mechanizmas; nesėkmingas pranešimas neužskaitomas kaip pristatytas. Visiškai uždarytos / sustabdytos programėlės pranešimų be serverio negarantuojame.
+
+Keitimui pagal būklę, komponento instrukciją bei patikroms prieš kiekvieną važiavimą / įkrovimą fiksuota data ar rida neišgalvojama. Tokį įrašą gali laikyti kontroliniu sąrašu arba pats įjungti ir užpildyti priminimą. Važiavimo pradžios, įkrovimo ir fizinės būklės programa automatiškai neaptinka. Draudimui būtina įvesti tikrą poliso galiojimo pabaigą; numatytas priminimas prieš 14 dienų. Įprastoms patikroms numatyta priminti termino dieną.
+
+Tai tavo siūlomi pradiniai intervalai, **ne oficialus Lynx-S ar kito gamintojo grafikas**. Pirmenybę turi konkretaus modelio bei komponento instrukcija. Po smūgių, drėgmės, purvo ar pastebėjus neįprastus požymius gali reikėti tikrinti anksčiau. Pradinė tvirtinimų patikra yra vienkartinė; vėliau pasirink periodinę tvirtinimų patikrą. Bendros serviso apžiūros orientyras paremtas [Voltride rekomendacija](https://voltride.com/electric-unicycle-maintenance-what-you-can-do-yourself-to-keep-your-wheel-in-good-condition/); kitų šablonų gamintojui nepriskiriame.
+
+Senų priežiūros įrašų terminai atidarant neperrašomi. `Use suggested intervals` mygtukas sąmoningai iš naujo užpildo formos grafiko laukus. Išsaugoti tikslai vėliau nepaslenkami vien nuo naujo odometro įrašo. Duomenų iš naujo importuoti nereikia. Nauji neprivalomi šablono ir kartojimo dienomis laukai lieka Drive, JSON ir Excel istorijoje. **Prieš naudodamas juos atnaujink visus savo įrenginius**: ankstesnis programos kodas šių papildomų laukų neatpažįsta. Google ir GitHub nustatymų keisti nereikia.
+
+### Automatinio sinchronizavimo patikra
+
+1. Telefone ir kompiuteryje atverk tą patį puslapį, prisijunk ta pačia Google paskyra ir palik įjungtą `Automatic sync`.
+2. Telefone išsaugok bandomą įrašą. Palik programėlę atvirą, kol nebeliks laukiančių vietinių pakeitimų.
+3. Grįžk į programą kompiuteryje arba palauk maždaug minutę, jeigu ji jau aktyvi. Įrašas turi atsirasti be `Sync now`.
+4. Pakeisk jo pastabą kompiuteryje ir patikrink telefone. Priemonės nebūtina laikyti atidarytos vienu metu: pirmoji siunčia į Drive, kita pasiima vėliau.
+5. Trumpam atjunk internetą, įrašyk pakeitimą ir vėl prisijunk. Jis lieka vietinėje eilėje ir bus siunčiamas automatiškai, jei Google prieiga galioja.
+
+Visiškai uždarytos arba paslėptos PWA fono darbo negarantuojame. Po perkrovimo arba pasibaigus Google žetono galiojimui reikia **Refresh access** paspaudimo. Automatinis sinchronizavimas neatnaujina Google leidimo be naudotojo veiksmo. Konfliktai jo nedraudžia: dvi skirtingos to paties įrašo versijos saugomos peržiūrai. [Google žetono modelis](https://developers.google.com/identity/oauth2/web/guides/use-token-model).
 
 **GitHub talpins programėlę. Kiekvienas naudotojas savo įrašus ir failus saugos savo Google Drive.** Programėlės naudotojams GitHub paskyros nereikia. Toliau aprašytą pradinį paruošimą vieną kartą atlieka projekto savininkas.
 
 ## 1. Pasiruošk paketą
 
-1. Atsisiųsk ir išskleisk `Kairo-Ride-2.0.3.zip` kompiuteryje.
+1. Atsisiųsk ir išskleisk `Kairo-Ride-2.0.4.zip` kompiuteryje.
 2. Atverk išskleistą `Kairo-Ride` aplanką. Jame turi matytis `package.json`, `app`, `components`, `public` ir kiti failai.
 3. **Nekelk į GitHub paties ZIP.** Reikia jo viduje esančių failų ir aplankų.
 4. Nepridėk savo Excel, JSON duomenų kopijų, nuotraukų, video, GPX ar prisijungimo paslapčių. `.gitignore` nėra apsauga nuo rankinio jų įkėlimo per svetainę.
@@ -31,7 +73,7 @@ Jei atnaujini jau sukurtą repozitoriją ir naršyklė paslėptą failą atmeta,
 
 **Prieš kiekvieną atnaujinimą visko trinti nereikia.** Į tą patį kelią įkeltas tokio pat pavadinimo failas naujame commit'e atnaujinamas. Tačiau failas, kurio naujame pakete nebėra, savaime neištrinamas ir lieka repozitorijoje.
 
-Šiam 2.0.3 paketui:
+Šiam 2.0.4 paketui:
 
 - įkelk išskleisto `Kairo-Ride` aplanko turinį į repozitorijos šaknį ir patvirtink pakeitimus;
 - senų `app`, `components`, `lib`, `public` ar kitų katalogų prieš tai netrink;
@@ -43,7 +85,7 @@ Jei atnaujini jau sukurtą repozitoriją ir naršyklė paslėptą failą atmeta,
 1. Vieną kartą pasirink `File → Clone repository` ir atsisiųsk savo `Kairo-Ride` repozitoriją.
 2. Nukopijuok naujo paketo turinį į tą vietinį aplanką ir sutik pakeisti tokio pat pavadinimo failus.
 3. Jei leidimo pastabose nurodyta pašalinti seną failą, ištrink jį tame vietiniame aplanke. **Neliesk `.git` katalogo.**
-4. GitHub Desktop lange peržiūrėk `Changes`, įrašyk, pvz., `Update Kairo Ride to 2.0.3`, pasirink `Commit to main`, tada `Push origin`.
+4. GitHub Desktop lange peržiūrėk `Changes`, įrašyk, pvz., `Update Kairo Ride to 2.0.4`, pasirink `Commit to main`, tada `Push origin`.
 
 GitHub istorija leidžia grįžti prie ankstesnio commit'o, todėl viso projekto ištrynimas prieš kiekvieną pataisą tik padidina riziką netyčia praleisti failą.
 
@@ -210,6 +252,10 @@ GitHub paskyrai įjunk dviejų žingsnių apsaugą: programėlės kodo pakeitima
 
 ## Paketo patikros prieš perdavimą
 
-Statinė versija surinkta ir 60 automatinių testų sėkmingai paleisti su abiem baziniais keliais: `/` ir `/Kairo-Ride/`. TypeScript ir ESLint patikros sėkmingos. Patikrintas sintetinės Google Client ID reikšmės įtraukimas tik į surinktą viešą konfigūraciją; pateikiamo kodo Client ID paliktas tuščias.
+Statinė versija surinkta ir 116 automatinių testų sėkmingai paleisti su abiem baziniais keliais: `/` ir `/Kairo-Ride/`. TypeScript ir ESLint patikros sėkmingos. Patikrintas sintetinės Google Client ID reikšmės įtraukimas tik į surinktą viešą konfigūraciją; pateikiamo kodo Client ID paliktas tuščias.
+
+Naujos patikros apima abiejų grafikų ašių perskaičiavimą pagal rodomas priemones, priartinto intervalo skalę, `km/d` intervalus / laiko juostas / rūšiavimą, kompaktiškos lentelės struktūrą, automatinio sinchronizavimo laikmatį, vienalaikių siuntimų ribojimą, pakartotinius bandymus, atnaujinimų gavimą be vietinių pakeitimų ir dviejų įrenginių konflikto išsaugojimą. Surinkimo įspėjimas dėl didesnio JavaScript failo nėra klaida; papildomas kodo skaidymas paliktas vėlesniam optimizavimui.
+
+Maintenance patikros apima visus šablonus, abiejų priminimų varnelės būsenas, kitą pasirinktą priemonę, mėnesių pabaigas ir keliamuosius metus, savaitinį kartojimą, senų terminų išlaikymą, vienu veiksmu išsaugomą atlikimą ir kitą užduotį, JSON / Excel atkūrimą, konfliktus, telefono pranešimų siuntimo kelią ir atsisakyto leidimo gerbimą. Realus pranešimas tavo telefono operacinėje sistemoje turi būti išbandytas po publikavimo.
 
 Naudotos jau įdiegtos priklausomybės; `package-lock.json` priklausomybių grafas patikrintas nesiunčiant paketų. Šviežias `npm ci`, GitHub Actions publikavimas, realus Google OAuth ir fizinių telefonų diegimas šioje aplinkoje neatlikti. Pirmas GitHub paleidimas ir 7 skyriaus bandymai yra likusi paleidimo patikra.

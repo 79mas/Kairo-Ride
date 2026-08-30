@@ -1,4 +1,5 @@
 import { KINDS, gearCategoryLabels, gearStatusLabels, maintenanceCategoryLabels, makeOperation, parseOperation, project, type Kind, type Operation, type Reading, type Wheel, wheelStats } from "./domain";
+import {templateForMaintenance} from "./maintenance";
 
 type Cell = string | number | boolean | null;
 export type Workbook = Record<string, Cell[][]>;
@@ -186,7 +187,7 @@ export function exportWorkbook(operations:Operation[]):Workbook{
     Rides:[["ID","Name","Wheel ID","Wheel","At (UTC)","Distance km","Trip ID","Trip","Notes","Local date","Time zone"],...s.ride.map(r=>[r.id,r.name,r.wheelId,names.get(r.wheelId)??"",r.at,r.distanceKm,r.tripId,trips.get(r.tripId??"")??"",r.notes,r.localDate??"",r.timeZone??""])],
     Trips:[["ID","Name","Start date","End date","Notes"],...s.trip.map(t=>[t.id,t.name,t.startDate,t.endDate,t.notes])],
     Gear:[["ID","Name","Category","Status","Brand","Model","Size","Purchased on","Used with IDs","Used with","Notes"],...s.gear.map(g=>[g.id,g.name,gearCategoryLabels[g.category],gearStatusLabels[g.status],g.brand,g.model,g.size,g.purchasedOn,(g.usedWithGearIds??[]).join(", "),(g.usedWithGearIds??[]).map(id=>gearNames.get(id)??id).join(", "),g.notes])],
-    Maintenance:[["ID","Task","Category","Target kind","Target ID","Target","Due date","Due odometer km","Remind days before","Repeat km","Repeat months","Completed (UTC)","Notes"],...s.maintenance.map(m=>[m.id,m.title,maintenanceCategoryLabels[m.category],m.targetKind,m.targetId,m.targetKind==="wheel"?names.get(m.targetId)??m.targetId:gearNames.get(m.targetId)??m.targetId,m.dueDate,m.dueOdometerKm,m.remindDaysBefore,m.repeatKm,m.repeatMonths,m.completedAt,m.notes])],
+    Maintenance:[["ID","Task","Category","Target kind","Target ID","Target","Due date","Due odometer km","Remind days before","Repeat km","Repeat months","Completed (UTC)","Notes","Template ID","Template","Repeat days","Date reminder enabled","Mileage reminder enabled"],...s.maintenance.map(m=>[m.id,m.title,maintenanceCategoryLabels[m.category],m.targetKind,m.targetId,m.targetKind==="wheel"?names.get(m.targetId)??m.targetId:gearNames.get(m.targetId)??m.targetId,m.dueDate,m.dueOdometerKm,m.remindDaysBefore,m.repeatKm,m.repeatMonths,m.completedAt,m.notes,m.templateId??"",m.templateId?templateForMaintenance(m).title.en:"",m.repeatDays??null,!!m.dueDate,m.dueOdometerKm!==null])],
     Attachments:[["ID","Owner kind","Owner ID","Name","Size bytes","Added (UTC)","Drive URL"],...s.attachment.map(a=>[a.id,a.ownerKind,a.ownerId,a.name,a.size,a.addedAt,a.driveId?`https://drive.google.com/file/d/${a.driveId}/view`:"Not uploaded to Drive yet"])],
     History:[["Operation ID","Part (from 0)","JSON fragment"],...operations.flatMap(op=>{const json=JSON.stringify(op);const rows:Cell[][]=[];for(let p=0;p<json.length;){let end=Math.min(p+30000,json.length);if(end<json.length&&/[\uD800-\uDBFF]/.test(json[end-1]))end--;rows.push([op.id,rows.length,json.slice(p,end)]);p=end;}return rows;})],
   };

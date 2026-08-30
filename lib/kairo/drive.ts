@@ -54,6 +54,11 @@ export const driveFolderUrl=(id:string)=>`https://drive.google.com/drive/folders
 const isId=(id:unknown):id is string=>typeof id==="string"&&/^[a-zA-Z0-9_-]{8,200}$/.test(id);
 function ensureFile(value:DriveFile):DriveFile{if(!isId(value.id))throw new Error("Google returned an invalid file identifier.");return value;}
 function safeSession(uri:string){const url=new URL(uri);if(url.origin!=="https://www.googleapis.com"||!url.pathname.startsWith("/upload/drive/v3/files"))throw new Error("Invalid Google upload address.");return uri;}
+async function historyFingerprint(root:string,operations:Operation[]){
+  const bytes=new TextEncoder().encode(JSON.stringify([root,...operations.map(op=>op.id).sort()]));
+  const digest=await crypto.subtle.digest("SHA-256",bytes);
+  return [...new Uint8Array(digest)].map(byte=>byte.toString(16).padStart(2,"0")).join("");
+}
 async function limitedJson(response:Response,maxBytes:number):Promise<unknown>{
   if(!response.body)throw new Error("Empty Drive response.");
   const reader=response.body.getReader(),chunks:Uint8Array[]=[];let size=0;
@@ -81,6 +86,7 @@ export class DriveClient {
       if(response.status===401){this.token="";throw new DriveError("Google access expired. Press ‘Refresh access’.",401);}
       if(response.status===403){
         const body=await response.json().catch(()=>null);const reason=body?.error?.errors?.[0]?.reason;
+        if(reason==="rateLimitExceeded"||reason==="userRateLimitExceeded")throw new DriveError("Google is rate-limiting requests. Sync will retry later.",429);
         throw new DriveError(reason==="storageQuotaExceeded"?"Google Drive has insufficient space. Records and files remain on this device.":"Google denied the action. Check Drive permission; the project owner should verify that Drive API is enabled.",403);
       }
       if(response.status===429||response.status>=500)throw new DriveError("Google is unavailable or rate-limiting requests. Try syncing later.",response.status);
@@ -209,27 +215,38 @@ export class DriveClient {
       await this.pull(namespace,onProgress);
       let workspace=await loadWorkspace(namespace);
       if(workspace.state.integrity.length)throw new Error("Part of the data history is missing. Sync stopped to prevent incorrect changes.");
+      const reconciledFingerprint=await historyFingerprint(root.id,workspace.operations);
+      const reconcileFolders=await metaGet<string>(`${namespace}:reconciledHistory`)!==reconciledFingerprint;
       // Upload raw originals before publishing metadata that claims a Drive ID.
       for(const attachment of workspace.state.attachment){
         const conflicted=workspace.state.conflicts.some(c=>c.entityId===attachment.id||c.entityId===attachment.ownerId);
         if(conflicted)continue;
+        // A no-change poll must not traverse every attachment's folders.
+        if(attachment.driveId&&!reconcileFolders)continue;
+        const stored=workspace.blobs.find(b=>b.attachmentId===attachment.id);
+        if(!attachment.driveId&&!stored)continue; // The originating offline device owns the queued original.
         const folder=await this.ownerFolder(attachment.ownerKind,attachment.ownerId,workspace.state);
         if(attachment.driveId)continue;
-        const stored=workspace.blobs.find(b=>b.attachmentId===attachment.id);
-        if(!stored)continue; // The originating offline device still owns the queued original.
-        const driveId=await this.uploadAttachment(namespace,attachment,stored,folder.id,onProgress);
+        const driveId=await this.uploadAttachment(namespace,attachment,stored!,folder.id,onProgress);
         this.assertConnected();
         const latest=(await loadWorkspace(namespace)).state.attachment.find(a=>a.id===attachment.id);
         if(latest)await commit(namespace,"attachment",attachmentSchema.parse({...latest,driveId}),attachment.id);
       }
-      const history=await this.folder("history","history",root.id);
       // Capture a finite batch. Later local writes remain pending for the next pass.
       workspace=await loadWorkspace(namespace);const pending=workspace.pending;
-      for(let i=0;i<pending.length;i++){onProgress(`Uploading changes: ${i+1} / ${pending.length}`);await this.push(namespace,pending[i],history.id);}
-      await this.pull(namespace,onProgress);
+      if(pending.length){
+        const history=await this.folder("history","history",root.id);
+        for(let i=0;i<pending.length;i++){onProgress(`Uploading changes: ${i+1} / ${pending.length}`);await this.push(namespace,pending[i],history.id);}
+        await this.pull(namespace,onProgress);
+      }
       workspace=await loadWorkspace(namespace);
       const notYetUploaded=new Set(workspace.pending.map(r=>r.operation.id));
-      onProgress("Updating database snapshot…");await this.writeSnapshot(workspace.operations.filter(op=>!notYetUploaded.has(op.id)),root.id);
+      const confirmed=workspace.operations.filter(op=>!notYetUploaded.has(op.id)),snapshotFingerprint=await historyFingerprint(root.id,confirmed);
+      if(await metaGet<string>(`${namespace}:snapshotHistory`)!==snapshotFingerprint){
+        onProgress("Updating database snapshot…");await this.writeSnapshot(confirmed,root.id);
+        await metaSet(`${namespace}:snapshotHistory`,snapshotFingerprint);
+      }
+      await metaSet(`${namespace}:reconciledHistory`,reconciledFingerprint);
       const lastSync=new Date().toISOString();await metaSet(`${namespace}:lastSync`,lastSync);
       return {rootId:root.id,pending:workspace.pending.length,lastSync};
     };

@@ -28,6 +28,15 @@ self.addEventListener("message",event=>{
     if(await cache.match(HOME))event.source?.postMessage({type:"KAIRO_OFFLINE_READY"});
   })());
 });
+self.addEventListener("notificationclick",event=>{
+  event.notification.close();
+  event.waitUntil((async()=>{
+    const windows=await self.clients.matchAll({type:"window",includeUncontrolled:true});
+    const existing=windows.find(client=>{const url=new URL(client.url);return url.origin===self.location.origin&&(url.pathname===HOME||url.pathname===HOME+"index.html");});
+    if(existing)return existing.focus();
+    return self.clients.openWindow(HOME);
+  })());
+});
 self.addEventListener("fetch",event=>{
   const request=event.request,url=new URL(request.url);
   if(request.method!=="GET"||url.origin!==self.location.origin||request.headers.has("Authorization"))return;

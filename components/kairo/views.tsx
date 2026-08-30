@@ -1,34 +1,36 @@
 "use client";
-import {useMemo,useRef,useState,type ReactNode} from "react";
+import {useRef,useState,type ReactNode} from "react";
 import {
-  ArrowDown,ArrowDownToLine,ArrowRight,ArrowUp,ArrowUpFromLine,Backpack,BarChart3,Battery,
+  ArrowDownToLine,ArrowRight,ArrowUpFromLine,Backpack,Battery,
   CalendarClock,Camera,Cable,ChevronLeft,ChevronRight,File,Footprints,Gauge,Hand,Headphones,
   Mountain,Package,Paperclip,Pencil,Plus,Route,Search,Shield,Shirt,Trash2,TriangleAlert,Wrench,
 } from "lucide-react";
 import {
-  Bar,BarChart,Brush,CartesianGrid,Line,LineChart,ResponsiveContainer,Tooltip,XAxis,YAxis,
+  Bar,BarChart,CartesianGrid,ResponsiveContainer,Tooltip,XAxis,YAxis,
 } from "recharts";
 import {Button} from "@/components/ui/button";
 import {Input} from "@/components/ui/input";
 import {Empty,EmptyHeader,EmptyTitle,EmptyDescription,EmptyMedia} from "@/components/ui/empty";
 import {TabsContent} from "@/components/ui/tabs";
 import {Pick,type EditableKind} from "./forms";
+import {RideTable} from "./ride-table";
+import {AnalyticsView} from "./history-charts";
 import {
   GEAR_CATEGORIES,GEAR_STATUSES,gearCategoryLabels,gearStatusLabels,maintenanceCategoryLabels,
   formatDate,formatKm,wheelStats,
   type Attachment,type Entity,type Gear,type Kind,type Maintenance,type Reading,type Ride,type State,type Trip,type Wheel,
 } from "@/lib/kairo/domain";
 import {driveFileUrl} from "@/lib/kairo/drive";
+import {maintenanceOdometer,templateForMaintenance} from "@/lib/kairo/maintenance";
 import {useI18n,ltGearCategories,ltGearStatuses,ltMaintenanceCategories} from "@/lib/kairo/i18n";
 import {
-  averageDistance,cumulativeSeries,distanceEvents,dueMaintenance,maintenanceStatus,metricDistance,monthlySeries,periodData,rideEntries,tripRideStats,
-  type AverageUnit,type ChartMode,type MaintenanceStatus,type RideEntry,
+  averageDistance,dueMaintenance,fitChartDomain,maintenanceStatus,metricDistance,periodData,rideEntries,tripRideStats,
+  type AverageUnit,type ChartMode,type MaintenanceStatus,
 } from "@/lib/kairo/stats";
 
 export type Detail={kind:"trip"|"ride";id:string};
 export type View="overview"|"rides"|"trips"|"wheels"|"gear"|"analytics";
 export type ViewActions={openEditor:(kind:EditableKind,entity?:Entity,tripId?:string)=>void;openRide:(ride?:Ride,reading?:Reading,tripId?:string)=>void;askDelete:(kind:Kind,entity:Entity,linkedReading?:Reading)=>void;setDetail:(d:Detail)=>void};
-type SortKey="date"|"name"|"wheel"|"odometer"|"distance"|"trip"|"notes"|"files";
 
 const chartStyle={background:"#111217",border:"1px solid #2c2e34",borderRadius:10,color:"#f5f3ef"};
 
@@ -67,13 +69,33 @@ function GearCard({gear,state,actions}:{gear:Gear;state:State;actions:ViewAction
   return <article className="gear-card panel"><div className="section-heading"><span className="gear-icon"><Icon/></span><SmallActions edit={()=>actions.openEditor("gear",gear)} remove={()=>actions.askDelete("gear",gear)}/></div><p className="eyebrow">{category}</p><h2>{gear.name}</h2><span className={`gear-status gear-status-${gear.status}`}>{status}</span>{(gear.brand||gear.model||gear.size||gear.purchasedOn||links.length>0)&&<dl>{gear.brand&&<div><dt>{tr("Brand","Gamintojas")}</dt><dd>{gear.brand}</dd></div>}{gear.model&&<div><dt>{tr("Model","Modelis")}</dt><dd>{gear.model}</dd></div>}{gear.size&&<div><dt>{tr("Size","Dydis")}</dt><dd>{gear.size}</dd></div>}{gear.purchasedOn&&<div><dt>{tr("Purchased","Įsigyta")}</dt><dd>{formatDate(gear.purchasedOn,false,undefined,locale)}</dd></div>}{links.length>0&&<div><dt>{tr("Used with","Kur naudojama")}</dt><dd>{links.join(", ")}</dd></div>}</dl>}{gear.notes&&<details className="gear-notes"><summary>{tr("Notes","Pastabos")}</summary><p className="preserve-lines">{gear.notes}</p></details>}</article>;
 }
 
-function MaintenanceCard({item,state,actions}:{item:Maintenance;state:State;actions:ViewActions}){
+export function MaintenanceCard({item,state,actions}:{item:Maintenance;state:State;actions:ViewActions}){
   const {tr,language,locale}=useI18n(),status=maintenanceStatus(item,state);
   const target=(item.targetKind==="wheel"?state.wheel:state.gear).find(entity=>entity.id===item.targetId);
   const label=language==="lt"?ltMaintenanceCategories[item.category]:maintenanceCategoryLabels[item.category];
   const statusLabels:Record<MaintenanceStatus,string>={completed:tr("Completed","Atlikta"),overdue:tr("Overdue","Vėluoja"),due:tr("Due now","Laikas atlikti"),upcoming:tr("Upcoming","Artėja"),planned:tr("Planned","Suplanuota")};
   const Icon=item.category==="insurance"?Shield:item.category==="battery"?Battery:Wrench;
-  return <article className={`maintenance-card panel maintenance-${status}`}><div className="section-heading"><span className="gear-icon"><Icon/></span><SmallActions edit={()=>actions.openEditor("maintenance",item)} remove={()=>actions.askDelete("maintenance",item)}/></div><p className="eyebrow">{label}</p><h2>{item.title}</h2><span className={`maintenance-status status-${status}`}>{statusLabels[status]}</span><dl><div><dt>{tr("Applies to","Kam taikoma")}</dt><dd>{target?.name??tr("Unavailable","Nepasiekiama")}</dd></div>{item.dueDate&&<div><dt>{item.category==="insurance"?tr("Valid until","Galioja iki"):tr("Due date","Atlikimo data")}</dt><dd>{formatDate(item.dueDate,false,undefined,locale)}</dd></div>}{item.dueOdometerKm!==null&&<div><dt>{tr("Due odometer","Atlikimo odometras")}</dt><dd>{formatKm(item.dueOdometerKm,locale)} km</dd></div>}{item.remindDaysBefore!==null&&item.dueDate&&<div><dt>{tr("Reminder","Priminimas")}</dt><dd>{item.remindDaysBefore} {tr("days before","d. prieš")}</dd></div>}{item.repeatKm!==null&&<div><dt>{tr("Repeat","Kartoti")}</dt><dd>{formatKm(item.repeatKm,locale)} km</dd></div>}{item.repeatMonths!==null&&<div><dt>{tr("Repeat","Kartoti")}</dt><dd>{item.repeatMonths} {tr("months","mėn.")}</dd></div>}</dl>{item.notes&&<p className="maintenance-notes preserve-lines">{item.notes}</p>}</article>;
+  const template=item.templateId?templateForMaintenance(item):undefined,odometer=maintenanceOdometer(state,item.targetKind,item.targetId);
+  const heading=template?(template.group==="condition"?tr("Condition / component-based work","Darbai pagal būklę / komponentą"):template.group==="inspection"?tr("Inspection","Patikra"):label):label;
+  return <article className={`maintenance-card panel maintenance-${status}`}>
+    <div className="section-heading"><span className="gear-icon"><Icon/></span><SmallActions edit={()=>actions.openEditor("maintenance",item)} remove={()=>actions.askDelete("maintenance",item)}/></div>
+    <p className="eyebrow">{heading}</p><h2>{item.title}</h2><span className={`maintenance-status status-${status}`}>{statusLabels[status]}</span>
+    {item.dueDate&&item.dueOdometerKm!==null&&!item.completedAt&&<p className="field-hint">{tr("Whichever comes first: date or mileage.","Kas sueina pirmiau: data ar rida.")}</p>}
+    {!item.dueDate&&item.dueOdometerKm===null&&!item.completedAt&&<p className="field-hint">{template?.cadence[language]??tr("Unscheduled checklist","Patikra be termino")}</p>}
+    <dl>
+      <div><dt>{tr("Applies to","Kam taikoma")}</dt><dd>{target?.name??tr("Unavailable","Nepasiekiama")}</dd></div>
+      {item.dueDate&&<div><dt>{item.category==="insurance"?tr("Valid until","Galioja iki"):tr("Due date","Atlikimo data")}</dt><dd>{formatDate(item.dueDate,false,undefined,locale)}</dd></div>}
+      {item.dueOdometerKm!==null&&<div><dt>{tr("Due odometer","Atlikimo odometras")}</dt><dd>{formatKm(item.dueOdometerKm,locale)} km</dd></div>}
+      {item.dueOdometerKm!==null&&odometer!==null&&!item.completedAt&&<div><dt>{tr("Distance remaining","Liko atstumo")}</dt><dd>{odometer>=item.dueOdometerKm?tr("Target reached","Tikslas pasiektas"):`${formatKm(item.dueOdometerKm-odometer,locale)} km`}</dd></div>}
+      {item.remindDaysBefore!==null&&item.dueDate&&<div><dt>{tr("Reminder","Priminimas")}</dt><dd>{item.remindDaysBefore} {tr("days before","d. prieš")}</dd></div>}
+      {item.repeatKm!==null&&<div><dt>{tr("Repeat","Kartoti")}</dt><dd>{formatKm(item.repeatKm,locale)} km</dd></div>}
+      {item.repeatDays!=null&&<div><dt>{tr("Repeat","Kartoti")}</dt><dd>{item.repeatDays} {tr("days","d.")}</dd></div>}
+      {item.repeatMonths!==null&&<div><dt>{tr("Repeat","Kartoti")}</dt><dd>{item.repeatMonths} {tr("months","mėn.")}</dd></div>}
+      {item.completedAt&&<div><dt>{tr("Completed","Atlikta")}</dt><dd>{formatDate(item.completedAt,true,undefined,locale)}</dd></div>}
+    </dl>
+    {template&&<details className="maintenance-guidance"><summary>{tr("What to check / suggested interval","Ką tikrinti / siūlomas intervalas")}</summary><strong>{template.cadence[language]}</strong><p>{template.guidance[language]}</p><p>{tr("Suggested reminder, not an official manufacturer schedule. Manufacturer instructions take priority.","Siūlomas priminimas, ne oficialus gamintojo grafikas. Gamintojo instrukcija turi pirmenybę.")}</p></details>}
+    {item.notes&&<p className="maintenance-notes preserve-lines">{item.notes}</p>}
+  </article>;
 }
 
 export function FileListView({files,localIds,onDownload,onDelete}:{files:Attachment[];localIds:Set<string>;onDownload:(a:Attachment)=>void;onDelete:(a:Attachment)=>void}){
@@ -90,7 +112,7 @@ function PeriodChart({state}:{state:State}){
   const changeMode=(next:string)=>{setMode(next as ChartMode);setOffset(0);};
   const toggle=(id:string)=>setHidden(current=>{const next=new Set(current);if(next.has(id))next.delete(id);else next.add(id);return next;});
   function swipe(end:number){if(touchStart.current===null)return;const distance=end-touchStart.current;touchStart.current=null;if(Math.abs(distance)<45)return;if(distance>0)setOffset(value=>value-1);else setOffset(value=>Math.min(0,value+1));}
-  return <section className="dashboard-chart panel"><div className="chart-heading"><div><p className="eyebrow">{tr("DISTANCE BY DAY","ATSTUMAS PAGAL DIENĄ")}</p><h2>{data.title}</h2><span>{formatKm(data.total,locale)} km</span></div><div className="chart-controls"><div className="segmented"><button className={mode==="week"?"active":""} onClick={()=>changeMode("week")}>{tr("This week","Ši savaitė")}</button><button className={mode==="month"?"active":""} onClick={()=>changeMode("month")}>{tr("This month","Šis mėnuo")}</button></div><Button variant="ghost" size="icon" onClick={()=>setOffset(value=>value-1)} aria-label={tr("Previous period","Ankstesnis laikotarpis")}><ChevronLeft/></Button><Button variant="ghost" size="icon" disabled={offset===0} onClick={()=>setOffset(value=>Math.min(0,value+1))} aria-label={tr("Next period","Kitas laikotarpis")}><ChevronRight/></Button></div></div><InteractiveLegend wheels={state.wheel} hidden={hidden} onToggle={toggle}/><div className="chart-touch" onTouchStart={event=>{touchStart.current=event.changedTouches[0].clientX;}} onTouchEnd={event=>swipe(event.changedTouches[0].clientX)}><ResponsiveContainer width="100%" height={300}><BarChart key={visible.map(wheel=>wheel.id).join("|")} data={data.points} accessibilityLayer margin={{top:12,right:10,left:-14,bottom:0}}><CartesianGrid stroke="#292b31" vertical={false}/><XAxis dataKey="label" tick={{fill:"#8e9098",fontSize:11}} axisLine={false} tickLine={false} interval={mode==="month"?2:0}/><YAxis tick={{fill:"#8e9098",fontSize:11}} axisLine={false} tickLine={false}/><Tooltip contentStyle={chartStyle}/>{visible.map(wheel=><Bar key={wheel.id} dataKey={wheel.id} name={wheel.name} stackId="distance" fill={wheel.color} radius={[3,3,0,0]}/>)}</BarChart></ResponsiveContainer></div><p className="chart-hint">{tr("Swipe right for an older period and left to return towards the present. Tap a vehicle in the legend to hide or show it.","Brauk dešinėn ankstesniam laikotarpiui, kairėn – grįžti dabarties link. Paspausk priemonę legendoje, kad ją paslėptum arba parodytum.")}</p></section>;
+  return <section className="dashboard-chart panel"><div className="chart-heading"><div><p className="eyebrow">{tr("DISTANCE BY DAY","ATSTUMAS PAGAL DIENĄ")}</p><h2>{data.title}</h2><span>{formatKm(data.total,locale)} km</span></div><div className="chart-controls"><div className="segmented"><button className={mode==="week"?"active":""} onClick={()=>changeMode("week")}>{tr("This week","Ši savaitė")}</button><button className={mode==="month"?"active":""} onClick={()=>changeMode("month")}>{tr("This month","Šis mėnuo")}</button></div><Button variant="ghost" size="icon" onClick={()=>setOffset(value=>value-1)} aria-label={tr("Previous period","Ankstesnis laikotarpis")}><ChevronLeft/></Button><Button variant="ghost" size="icon" disabled={offset===0} onClick={()=>setOffset(value=>Math.min(0,value+1))} aria-label={tr("Next period","Kitas laikotarpis")}><ChevronRight/></Button></div></div><InteractiveLegend wheels={state.wheel} hidden={hidden} onToggle={toggle}/><div className="chart-touch" onTouchStart={event=>{touchStart.current=event.changedTouches[0].clientX;}} onTouchEnd={event=>swipe(event.changedTouches[0].clientX)}><ResponsiveContainer width="100%" height={300}><BarChart key={visible.map(wheel=>wheel.id).join("|")} data={data.points} accessibilityLayer margin={{top:12,right:10,left:-14,bottom:0}}><CartesianGrid stroke="#292b31" vertical={false}/><XAxis dataKey="label" tick={{fill:"#8e9098",fontSize:11}} axisLine={false} tickLine={false} interval={mode==="month"?2:0}/><YAxis domain={fitChartDomain(data.points,visible.map(wheel=>wheel.id),"stacked")} allowDataOverflow tick={{fill:"#8e9098",fontSize:11}} axisLine={false} tickLine={false}/><Tooltip contentStyle={chartStyle}/>{visible.map(wheel=><Bar key={wheel.id} dataKey={wheel.id} name={wheel.name} stackId="distance" fill={wheel.color} radius={[3,3,0,0]}/>)}</BarChart></ResponsiveContainer></div><p className="chart-hint">{tr("Swipe right for an older period and left to return towards the present. Tap a vehicle in the legend to hide or show it.","Brauk dešinėn ankstesniam laikotarpiui, kairėn – grįžti dabarties link. Paspausk priemonę legendoje, kad ją paslėptum arba parodytum.")}</p></section>;
 }
 
 function DashboardHero({state}:{state:State}){
@@ -110,32 +132,6 @@ function FleetStrip({state,actions}:{state:State;actions:ViewActions}){
   return <section className="fleet-section"><div className="section-heading"><div><p className="eyebrow">{tr("FLEET","PARKAS")}</p><h2>{tr("Your vehicles","Tavo transporto priemonės")}</h2></div><Button variant="ghost" size="sm" onClick={()=>actions.openEditor("wheel")}><Plus/>{tr("Add","Pridėti")}</Button></div>{fleet.length?<div className="fleet-strip">{fleet.map(item=><article key={item.wheel.id} style={{"--wheel-color":item.wheel.color} as React.CSSProperties}><span>{item.wheel.name}</span><strong>{formatKm(item.trackedKm,locale)} km</strong></article>)}</div>:<div className="panel"><Blank icon={Gauge} title={tr("Your fleet starts here","Tavo parkas prasideda čia")} description={tr("Add a vehicle and its baseline odometer.","Pridėk transporto priemonę ir pradinį odometrą.")}><Button onClick={()=>actions.openEditor("wheel")}><Plus/>{tr("Add vehicle","Pridėti priemonę")}</Button></Blank></div>}</section>;
 }
 
-function sortRideEntries(entries:RideEntry[],state:State,key:SortKey,direction:"asc"|"desc"){
-  const wheelNames=new Map(state.wheel.map(w=>[w.id,w.name])),tripNames=new Map(state.trip.map(t=>[t.id,t.name])),fileCounts=new Map<string,number>();
-  for(const file of state.attachment)if(file.ownerKind==="ride")fileCounts.set(file.ownerId,(fileCounts.get(file.ownerId)??0)+1);
-  const value=(entry:RideEntry):string|number=>key==="date"?Date.parse(entry.at):key==="name"?entry.name:key==="wheel"?wheelNames.get(entry.wheelId)??"":key==="odometer"?entry.odometerKm??-1:key==="distance"?entry.distanceKm??-1:key==="trip"?tripNames.get(entry.tripId??"")??"":key==="notes"?(entry.notes.trim()?entry.notes.trim().length:-1):entry.ride?fileCounts.get(entry.ride.id)??0:0;
-  return [...entries].sort((a,b)=>{const av=value(a),bv=value(b),comparison=typeof av==="number"&&typeof bv==="number"?av-bv:String(av).localeCompare(String(bv),"en",{numeric:true,sensitivity:"base"});return direction==="asc"?comparison:-comparison;});
-}
-
-function RideTable({state,actions}:{state:State;actions:ViewActions}){
-  const {tr,locale}=useI18n(),[key,setKey]=useState<SortKey>("date"),[direction,setDirection]=useState<"asc"|"desc">("desc"),entries=sortRideEntries(rideEntries(state),state,key,direction);
-  const labels:Record<SortKey,string>={date:tr("Date","Data"),name:tr("Ride","Važiavimas"),wheel:tr("Vehicle","Priemonė"),odometer:tr("Odometer","Odometras"),distance:tr("Distance","Atstumas"),trip:tr("Trip","Kelionė"),notes:tr("Notes","Pastabos"),files:tr("Files","Failai")};
-  const preferred=(next:SortKey):"asc"|"desc"=>["date","odometer","distance","notes","files"].includes(next)?"desc":"asc";
-  function sort(next:SortKey){if(next===key)setDirection(value=>value==="asc"?"desc":"asc");else{setKey(next);setDirection(preferred(next));}}
-  function selectSort(next:SortKey){setKey(next);setDirection(preferred(next));}
-  const icon=direction==="asc"?<ArrowUp/>:<ArrowDown/>;
-  return <><div className="ride-sort-mobile"><Pick label={tr("Sort rides","Rūšiuoti važiavimus")} value={key} onChange={value=>selectSort(value as SortKey)} options={(Object.keys(labels) as SortKey[]).map(value=>({value,label:labels[value]}))}/><Button variant="outline" size="icon" onClick={()=>setDirection(value=>value==="asc"?"desc":"asc")} aria-label={tr("Reverse sort","Keisti rūšiavimo kryptį")}>{icon}</Button></div><div className="ride-table panel"><div className="ride-table-head">{(Object.keys(labels) as SortKey[]).map(column=><button key={column} className={`ride-col-${column}`} onClick={()=>sort(column)} aria-pressed={key===column} aria-label={`${labels[column]}${key===column?` · ${direction}`:""}`}>{labels[column]}{key===column&&icon}</button>)}<span/></div>{entries.map(entry=>{const wheel=state.wheel.find(w=>w.id===entry.wheelId),trip=state.trip.find(t=>t.id===entry.tripId),files=entry.ride?state.attachment.filter(file=>file.ownerKind==="ride"&&file.ownerId===entry.ride!.id).length:0;const open=()=>entry.ride?actions.setDetail({kind:"ride",id:entry.ride.id}):actions.openRide(undefined,entry.reading);const remove=()=>entry.ride?actions.askDelete("ride",entry.ride,entry.reading):entry.reading&&actions.askDelete("reading",entry.reading);return <article className={`ride-table-row ${entry.warning?"warning-row":""}`} key={entry.key}><button className="ride-col-date" onClick={open}>{formatDate(entry.at,true,entry.ride?.timeZone,locale)}{entry.warning&&<TriangleAlert/>}</button><button className="ride-col-name" onClick={open}><i style={{background:wheel?.color}}/><strong>{entry.name||tr("Ride","Važiavimas")}</strong></button><span className="ride-col-wheel">{wheel?.name??"—"}</span><span className="ride-col-odometer">{formatKm(entry.odometerKm,locale)}{entry.odometerKm!==null&&" km"}</span><span className="ride-col-distance">{formatKm(entry.distanceKm,locale)}{entry.distanceKm!==null&&" km"}</span><span className="ride-col-trip">{trip?.name??"—"}</span><span className="ride-col-notes" title={entry.notes}>{entry.notes||"—"}</span><span className="ride-col-files">{files?<><Paperclip/>{files}</>:"—"}</span><SmallActions edit={()=>actions.openRide(entry.ride,entry.reading)} remove={remove}/></article>;})}</div></>;
-}
-
-function AnalyticsView({state}:{state:State}){
-  const {tr,locale}=useI18n(),events=distanceEvents(state),cumulative=cumulativeSeries(state),months=monthlySeries(state,locale),[hidden,setHidden]=useState<Set<string>>(()=>new Set());
-  const daily=useMemo(()=>{const map=new Map<string,Record<string,string|number>>();for(const event of events){const point=map.get(event.date)??{date:event.date,total:0};point[event.wheelId]=Number(point[event.wheelId]??0)+event.distance;point.total=Number(point.total)+event.distance;map.set(event.date,point);}return [...map.values()];},[events]);
-  const visible=state.wheel.filter(wheel=>!hidden.has(wheel.id)),chartKey=visible.map(wheel=>wheel.id).join("|");
-  const toggle=(id:string)=>setHidden(current=>{const next=new Set(current);if(next.has(id))next.delete(id);else next.add(id);return next;});
-  const chartBars=(stackId:string)=>visible.map(wheel=><Bar key={wheel.id} dataKey={wheel.id} name={wheel.name} stackId={stackId} fill={wheel.color} radius={[2,2,0,0]}/>);
-  if(!events.length)return <div className="panel"><Blank icon={BarChart3} title={tr("Analytics needs odometer history","Analitikai reikia odometro istorijos")} description={tr("Add at least two odometer points over time. Charts use the distance between consecutive readings.","Pridėk odometro rodmenų skirtingomis datomis. Grafikai naudoja atstumą tarp gretimų rodmenų.")}/></div>;
-  return <><div className="analytics-legend panel"><div><strong>{tr("Visible vehicles","Rodomos priemonės")}</strong><span>{tr("Tap a legend item to update and rescale every chart.","Paspausk legendos elementą – visi grafikai persiskaičiuos ir persimasteliuos.")}</span></div><InteractiveLegend wheels={state.wheel} hidden={hidden} onToggle={toggle}/></div><div className="analytics-grid"><section className="analytics-card panel"><div className="chart-heading"><div><p className="eyebrow">{tr("CUMULATIVE","KAUPIAMOJI")}</p><h2>{tr("Distance over time","Rida per laiką")}</h2></div><span>{tr("Drag the handles to zoom","Tempk kraštus masteliui")}</span></div><ResponsiveContainer width="100%" height={340}><LineChart key={chartKey} data={cumulative} accessibilityLayer margin={{top:15,right:12,left:-10,bottom:5}}><CartesianGrid stroke="#292b31" vertical={false}/><XAxis dataKey="date" tick={{fill:"#8e9098",fontSize:10}} minTickGap={35}/><YAxis tick={{fill:"#8e9098",fontSize:10}}/><Tooltip contentStyle={chartStyle}/>{visible.map(wheel=><Line key={wheel.id} type="monotone" dataKey={wheel.id} name={wheel.name} stroke={wheel.color} strokeWidth={2.5} dot={false} connectNulls/>)}<Brush dataKey="date" height={24} stroke="#f16305" fill="#16171c" travellerWidth={10}/></LineChart></ResponsiveContainer></section><section className="analytics-card panel"><div className="chart-heading"><div><p className="eyebrow">{tr("MONTHLY","MĖNESIO")}</p><h2>{tr("Distance by month","Rida pagal mėnesį")}</h2></div></div><ResponsiveContainer width="100%" height={330}><BarChart key={chartKey} data={months} accessibilityLayer margin={{top:15,right:12,left:-10,bottom:5}}><CartesianGrid stroke="#292b31" vertical={false}/><XAxis dataKey="label" tick={{fill:"#8e9098",fontSize:10}}/><YAxis tick={{fill:"#8e9098",fontSize:10}}/><Tooltip contentStyle={chartStyle}/>{chartBars("month")}<Brush dataKey="label" height={24} stroke="#f16305" fill="#16171c" travellerWidth={10}/></BarChart></ResponsiveContainer></section><section className="analytics-card panel analytics-wide"><div className="chart-heading"><div><p className="eyebrow">{tr("DAILY HISTORY","DIENOS ISTORIJA")}</p><h2>{tr("Daily distance by vehicle","Dienos rida pagal priemonę")}</h2></div></div><ResponsiveContainer width="100%" height={360}><BarChart key={chartKey} data={daily} accessibilityLayer margin={{top:15,right:12,left:-10,bottom:5}}><CartesianGrid stroke="#292b31" vertical={false}/><XAxis dataKey="date" tick={{fill:"#8e9098",fontSize:10}} minTickGap={22}/><YAxis tick={{fill:"#8e9098",fontSize:10}}/><Tooltip contentStyle={chartStyle}/>{chartBars("day")}<Brush dataKey="date" height={24} stroke="#f16305" fill="#16171c" travellerWidth={10}/></BarChart></ResponsiveContainer></section></div></>;
-}
 
 export function MainViews({state,actions,setView,openStorage}:{state:State;actions:ViewActions;setView:(v:View)=>void;openStorage:()=>void}){
   const {tr,language,locale}=useI18n(),{openEditor,openRide,askDelete}=actions;
