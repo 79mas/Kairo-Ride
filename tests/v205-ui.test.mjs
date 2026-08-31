@@ -126,7 +126,8 @@ test("Garage navigation and new-record vehicle selection are wired to maintenanc
   const fields=await readFile(new URL("../components/kairo/form-fields.tsx",import.meta.url),"utf8");
   assert.match(app,/if\(next==="wheels"\)notifyVehicleMaintenance\(garageReminders\(state\)/);
   assert.ok(/onValueChange=\{v=>changeView\(v as View\)\}/.test(app),"Tabs route through the reminder-aware handler");
-  assert.match(app,/!ride&&!reading&&!prepareNewRecord\(\)/);
+  assert.match(app,/defaultWheelId=!ride&&!reading\?prepareNewRecord\(\)/);
+  assert.match(app,/if\(defaultWheelId===false\)return/);
   assert.match(forms,/function selectVehicle\(next:string\)[\s\S]*?notifyVehicleMaintenance/);
   assert.match(fields,/disabled=\{o\.disabled\}/);
 });

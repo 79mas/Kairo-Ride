@@ -148,7 +148,7 @@ export async function workbookImport(book:Workbook, timeZone:string):Promise<Imp
       if(chunks.some((c,i)=>c.part!==i))throw new Error("The History sheet is missing part of the record history.");
       const op=parseOperation(JSON.parse(chunks.map(c=>c.text).join("")));if(op.id!==id)throw new Error("A History record ID does not match its content.");return op;
     });
-    if(!operations.length && ["Wheels","Records","Readings","Rides","Trips","Gear","Maintenance","Attachments"].some(k=>(book[k]?.length??0)>1))throw new Error("This export is missing recovery history. Use a JSON backup.");
+    if(!operations.length && ["Wheels","Records","Readings","Rides","Trips","Gear","Maintenance","Attachments","Goals"].some(k=>(book[k]?.length??0)>1))throw new Error("This export is missing recovery history. Use a JSON backup.");
     const state=project(operations);
     return {operations,warnings:["The immutable History sheet is imported. Manual edits to the other Excel sheets are not written into record history."],counts:Object.fromEntries(KINDS.map(k=>[k,state[k].length])) as Record<Kind,number>,source:"Kairo Ride export"};
   }
@@ -177,7 +177,7 @@ export async function workbookImport(book:Workbook, timeZone:string):Promise<Imp
   // Same source values produce the same import operation: importing twice is idempotent.
   operation.createdAt="2000-01-01T00:00:00.000Z";
   operation.id=await stableId("legacy-import",JSON.stringify(changes));
-  return {operations:[parseOperation(operation)],warnings,counts:{wheel:wheels.length,reading:reading.length,ride:0,trip:0,gear:0,maintenance:0,attachment:0},source:"Legacy PWA odometer archive"};
+  return {operations:[parseOperation(operation)],warnings,counts:{wheel:wheels.length,reading:reading.length,ride:0,trip:0,gear:0,maintenance:0,attachment:0,goal:0},source:"Legacy PWA odometer archive"};
 }
 
 export function exportWorkbook(operations:Operation[]):Workbook{
@@ -190,6 +190,7 @@ export function exportWorkbook(operations:Operation[]):Workbook{
     Trips:[["ID","Name","Start date","End date","Notes"],...s.trip.map(t=>[t.id,t.name,t.startDate,t.endDate,t.notes])],
     Gear:[["ID","Name","Category","Status","Brand","Model","Size","Purchased on","Used with IDs","Used with","Notes"],...s.gear.map(g=>[g.id,g.name,gearCategoryLabels[g.category],gearStatusLabels[g.status],g.brand,g.model,g.size,g.purchasedOn,(g.usedWithGearIds??[]).join(", "),(g.usedWithGearIds??[]).map(id=>gearNames.get(id)??id).join(", "),g.notes])],
     Maintenance:[["ID","Task","Category","Target kind","Target ID","Target","Due date","Due odometer km","Remind days before","Repeat km","Repeat months","Completed (UTC)","Notes","Template ID","Template","Repeat days","Date reminder enabled","Mileage reminder enabled"],...s.maintenance.map(m=>[m.id,m.title,maintenanceCategoryLabels[m.category],m.targetKind,m.targetId,m.targetKind==="wheel"?names.get(m.targetId)??m.targetId:gearNames.get(m.targetId)??m.targetId,m.dueDate,m.dueOdometerKm,m.remindDaysBefore,m.repeatKm,m.repeatMonths,m.completedAt,m.notes,m.templateId??"",m.templateId?templateForMaintenance(m).title.en:"",m.repeatDays??null,!!m.dueDate,m.dueOdometerKm!==null])],
+    Goals:[["ID","Wheel ID","Scope","Target km","Created (UTC)"],...s.goal.map(goal=>[goal.id,goal.wheelId,goal.wheelId?names.get(goal.wheelId)??goal.wheelId:"All vehicles",goal.targetKm,goal.createdAt])],
     Attachments:[["ID","Owner kind","Owner ID","Name","Size bytes","Added (UTC)","Drive URL"],...s.attachment.map(a=>[a.id,a.ownerKind,a.ownerId,a.name,a.size,a.addedAt,a.driveId?`https://drive.google.com/file/d/${a.driveId}/view`:"Not uploaded to Drive yet"])],
     History:[["Operation ID","Part (from 0)","JSON fragment"],...operations.flatMap(op=>{const json=JSON.stringify(op);const rows:Cell[][]=[];for(let p=0;p<json.length;){let end=Math.min(p+30000,json.length);if(end<json.length&&/[\uD800-\uDBFF]/.test(json[end-1]))end--;rows.push([op.id,rows.length,json.slice(p,end)]);p=end;}return rows;})],
   };

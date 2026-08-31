@@ -3,11 +3,12 @@ import {useEffect,useMemo,useRef,useState,type ReactNode} from "react";
 import {ArrowDown,ArrowUp,ChevronLeft,ChevronRight,Paperclip,Pencil,Trash2,TriangleAlert} from "lucide-react";
 import {Button} from "@/components/ui/button";
 import {Table,TableBody,TableCaption,TableCell,TableHead,TableHeader,TableRow} from "@/components/ui/table";
-import {formatDate,formatKm,type State} from "@/lib/kairo/domain";
+import {canRecordWithWheel,formatDate,formatKm,type State} from "@/lib/kairo/domain";
 import {hasCellValue,rideEntries,sortRideEntries,type RideSortKey} from "@/lib/kairo/stats";
 import {useI18n} from "@/lib/kairo/i18n";
 import {Pick} from "./forms";
 import type {ViewActions} from "./views";
+import {VehicleStatusBadge} from "./vehicle-status";
 
 export function RideTable({state,actions}:{state:State;actions:ViewActions}){
   const {tr,locale}=useI18n();
@@ -52,7 +53,7 @@ export function RideTable({state,actions}:{state:State;actions:ViewActions}){
           const remove=()=>entry.ride?actions.askDelete("ride",entry.ride,entry.reading):entry.reading&&actions.askDelete("reading",entry.reading);
           const values:Record<RideSortKey,ReactNode>={
             date:<button type="button" onClick={open} title={entry.warning??undefined}><time dateTime={entry.at}>{formatDate(entry.at,true,entry.ride?.timeZone,locale)}</time>{entry.warning&&<TriangleAlert aria-label={entry.warning}/>}</button>,
-            wheel:<span className="ledger-vehicle"><i style={{background:wheel?.color}}/>{cell(wheel?.name)}</span>,
+            wheel:<span className="ledger-vehicle"><i style={{background:wheel?.color}}/>{cell(wheel?.name)}{wheel&&!canRecordWithWheel(wheel)&&<VehicleStatusBadge wheel={wheel} state={state}/>}</span>,
             distance:cell(entry.distanceKm),daily:<span title={entry.intervalDays!==null?`${formatKm(entry.distanceKm,locale)} km / ${entry.intervalDays} ${tr("days","d.")}`:undefined}>{cell(entry.kmPerDay)}</span>,
             odometer:cell(entry.odometerKm),name:hasCellValue(entry.name)?<button className="ledger-ellipsis" onClick={open} title={entry.name}>{entry.name}</button>:cell(entry.name),
             trip:cell(trips.get(entry.tripId??"")),notes:<span className="ledger-ellipsis" title={entry.notes}>{cell(entry.notes)}</span>,

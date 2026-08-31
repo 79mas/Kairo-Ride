@@ -241,12 +241,12 @@ test("exported current status explains automatic attention without rewriting the
   assert.equal(d.canonical(ops),before);
 });
 
-test("new labels and 2.0.5 version are consistent across package, lockfile and UI",async()=>{
+test("record labels and the current patch version are consistent across package, lockfile and UI",async()=>{
   const pkg=JSON.parse(await readFile(new URL("../package.json",import.meta.url),"utf8"));
   const lock=JSON.parse(await readFile(new URL("../package-lock.json",import.meta.url),"utf8"));
   const app=await readFile(new URL("../components/kairo/app.tsx",import.meta.url),"utf8");
-  assert.equal(pkg.version,"2.0.5");assert.equal(lock.version,"2.0.5");assert.equal(lock.packages[""].version,"2.0.5");
-  assert.match(app,/<small>2\.0\.5<\/small>/);
+  assert.equal(pkg.version,"2.0.6");assert.equal(lock.version,"2.0.6");assert.equal(lock.packages[""].version,"2.0.6");
+  assert.match(app,/<small>2\.0\.6<\/small>/);
   const state=stateFor();const bad=d.wheelStats(wheel,[{...record,odometerKm:90}]);
   assert.match(bad.intervals[0].warning,/record/);assert.doesNotMatch(bad.intervals[0].warning,/reading/i);
   assert.throws(()=>d.validateEdit(state,"reading",{...record,odometerKm:90}),/record breaks/);

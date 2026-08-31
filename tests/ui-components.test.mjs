@@ -145,7 +145,7 @@ test("maintenance form defaults to pressure, two independent checkboxes and an a
   assert.match(html,/value="Check tire pressure"/);
   assert.match(inputTag(html,"Date reminder"),/checked/);assert.match(inputTag(html,"Mileage reminder"),/checked/);
   assert.match(inputTag(html,"Due odometer"),/value="200"/);
-  assert.ok(inputTag(html,"Due date").includes(`value="${maintenance.addMaintenanceInterval(domain.today(),{days:7})}"`));
+  assert.ok(inputTag(html,"Due date").includes(`value="${domain.formatDate(maintenance.addMaintenanceInterval(domain.today(),{days:7}))}"`));
   assert.match(html,/whichever comes first/);assert.match(html,/Use suggested intervals/);assert.match(html,/not an official Lynx-S/);assert.match(html,/not guaranteed when closed/);
   assert.match(inputTag(html,"Repeat time interval"),/value="7"/);
 });
@@ -161,7 +161,7 @@ test("editing a saved legacy maintenance form does not apply new template interv
   const {render,wheel}=await maintenanceFixture();
   const item={id:"legacy",title:"My previous task",category:"tire_tread",targetKind:"wheel",targetId:wheel.id,dueDate:"2027-01-15",dueOdometerKm:8000,remindDaysBefore:8,repeatKm:850,repeatMonths:6,completedAt:null,notes:"Original notes"};
   const html=render(item);
-  assert.match(inputTag(html,"Due date"),/value="2027-01-15"/);assert.match(inputTag(html,"Due odometer"),/value="8000"/);
+  assert.match(inputTag(html,"Due date"),/value="2027\/01\/15"/);assert.match(inputTag(html,"Due odometer"),/value="8000"/);
   assert.match(inputTag(html,"Repeat kilometres"),/value="850"/);assert.match(inputTag(html,"Repeat time interval"),/value="6"/);
   assert.match(html,/value="My previous task"/);assert.match(html,/Original notes/);
 });

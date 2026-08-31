@@ -1,19 +1,24 @@
 import {createContext,useContext,useEffect,useMemo,useState,type ReactNode} from "react";
+import {calendarPreferenceKey,readCalendarPreferences,saveCalendarPreferences,DEFAULT_CALENDAR,type CalendarPreferences} from "./calendar";
 
 export type Language="en"|"lt";
 const LANGUAGE_KEY="kairo-language";
 
-type I18n={
+type I18n=CalendarPreferences & {
   language:Language;
   locale:string;
   setLanguage:(language:Language)=>void;
   tr:(english:string,lithuanian?:string)=>string;
+  setCalendar:(value:Partial<CalendarPreferences>)=>void;
 };
 
-const fallback:I18n={language:"en",locale:"en-US",setLanguage:()=>{},tr:english=>english};
+const fallback:I18n={language:"en",locale:"en-US",setLanguage:()=>{},tr:english=>english,...DEFAULT_CALENDAR,setCalendar:()=>{}};
 const Context=createContext<I18n>(fallback);
 
 export function LanguageProvider({children}:{children:ReactNode}){
+  const [calendar,setCalendarState]=useState(readCalendarPreferences);
+  const setCalendar=(patch:Partial<CalendarPreferences>)=>{setCalendarState(current=>{const next={...current,...patch};saveCalendarPreferences(next);return next;});};
+  useEffect(()=>{const update=(event:StorageEvent)=>{if(event.key===calendarPreferenceKey())setCalendarState(readCalendarPreferences());};window.addEventListener("storage",update);return()=>window.removeEventListener("storage",update);},[]);
   const [language,setLanguageState]=useState<Language>(()=>{
     if(typeof window==="undefined")return "en";
     return localStorage.getItem(LANGUAGE_KEY)==="lt"?"lt":"en";
@@ -24,8 +29,9 @@ export function LanguageProvider({children}:{children:ReactNode}){
     language,
     locale:language==="lt"?"lt-LT":"en-US",
     setLanguage,
+    ...calendar,setCalendar,
     tr:(english,lithuanian)=>language==="lt"?(lithuanian??english):english,
-  }),[language]);
+  }),[language,calendar]);
   return <Context.Provider value={value}>{children}</Context.Provider>;
 }
 

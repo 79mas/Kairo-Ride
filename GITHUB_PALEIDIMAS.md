@@ -1,16 +1,33 @@
 # Kairo Ride: paleidimas per GitHub
 
-Versija 2.0.5 · 2026-08-30 · ratų statusai ir priežiūros priminimai
+Versija 2.0.6 · 2026/08/30 · įrašų patogumas, grupuoti grafikai ir ridos tikslai
 
-## Trumpai: atnaujinimas iš 2.0.4 ar ankstesnio paketo
+## Trumpai: atnaujinimas iš 2.0.5 ar ankstesnio paketo
 
 1. Programėlėje atsisiųsk JSON atsarginę kopiją. Neįkeltus originalius priedus išsisaugok atskirai.
-2. Išskleisk `Kairo-Ride-2.0.5.zip` ir įkelk **vidinio `Kairo-Ride` aplanko turinį** į tą pačią GitHub repozitorijos šaknį. Pasirink `Commit changes`. Senų katalogų prieš tai netrink.
+2. Išskleisk `Kairo-Ride-2.0.6.zip` ir įkelk **vidinio `Kairo-Ride` aplanko turinį** į tą pačią GitHub repozitorijos šaknį. Pasirink `Commit changes`. Senų katalogų prieš tai netrink.
 3. Įkelk ir naujus failus iš `components/kairo`, `hooks`, `lib/kairo` bei `tests`. Jau esančių paslėptų konfigūracijos failų keisti nereikia. `GOOGLE_CLIENT_ID` GitHub kintamasis ir esama Google konfigūracija lieka tie patys.
-4. Sulauk žalio `Actions → Publish Kairo Ride` rezultato. Atnaujink puslapį su internetu, kad atsisiųstų naują programą, tada uždaryk visus Kairo Ride naršyklės ir įdiegtos PWA langus ir atverk dar kartą. Tai atlik **telefone ir kompiuteryje**. Apačioje turi būti **2.0.5**. Prieš keisdamas ratų statusus šią versiją patikrink abiejuose įrenginiuose: ankstesnis kodas naujų būsenos laukų neatpažįsta. Naršyklės duomenų nevalyk ir PWA neišdiek.
+4. Sulauk žalio `Actions → Publish Kairo Ride` rezultato. Atnaujink puslapį su internetu, kad atsisiųstų naują programą, tada uždaryk visus Kairo Ride naršyklės ir įdiegtos PWA langus ir atverk dar kartą. Tai atlik **telefone ir kompiuteryje**. Apačioje turi būti **2.0.6**. Prieš išsaugodamas važiavimą be pavadinimo arba tikslą šią versiją patikrink abiejuose įrenginiuose: ankstesnis kodas naujo `goal` tipo ir tuščių važiavimo pavadinimų neatpažįsta. Naršyklės duomenų nevalyk ir PWA neišdiek.
 5. `Settings → Google Drive → Automatic sync` numatytai įjungtas. Jei prašoma, paspausk **Refresh access**. Esamos duomenų bazės iš naujo importuoti nereikia.
 
-### Kas pasikeitė 2.0.5
+### Kas pasikeitė 2.0.6
+
+- `New ride → Name` neprivalomas. `Odometer` naujam važiavimui privalomas, o `Ride distance` skaičiuojamas iš karto: įvestas odometras minus ankstesnis tos pačios priemonės rodmuo pagal pasirinktą datą. Tai neberedaguojamas laukelis.
+- Po sėkmingo išsaugojimo programėlė prisimena paskutinę naudotą priemonę atskirai kiekvienai paskyrai šiame įrenginyje. Jei ji neaktyvi arba pašalinta, pasirenkama naujausio tinkamo istorijos įrašo priemonė; jei tokio įrašo nėra – pirmoji aktyvi / atsarginė priemonė.
+- Seni važiavimai be odometro lieka archyve. Jų pavadinimą, pastabas ir kelionę galima redaguoti be išgalvoto rodmens; keičiant datą, priemonę ar atstumą reikia pridėti odometrą.
+- `Settings → Dates & calendar`: numatytas formatas **yyyy/mm/dd**, savaitės pradžia – pirmadienis. Galima rinktis penkis formatus ir bet kurią savaitės pradžios dieną. Pasirinkimas taikomas datų rodymui, įvedimui, kalendoriams bei savaitės grafiko ir statistikos riboms. Kompiuterinis saugojimo / eksporto formatas nekeičiamas.
+- `Critical`, `In repair`, `Sold` matomi priemonių pasirinkimuose ir raudonais ženklais Fleet gale. Istorija lieka grafikuose; naujų įrašų neaktyviai priemonei pridėti negalima.
+- Ekipuotės kortelės suskleistos: matoma kategorijos ikona ir pavadinimas. Paspaudus išsiskleidžia visa informacija bei redagavimo mygtukai.
+- Visuose stulpeliniuose grafikuose priemonių stulpeliai yra **greta**, ne vienas ant kito. Mastelis skaičiuojamas pagal didžiausią rodomą pavienį stulpelį. Legenda ir priartinimas išlieka; pažymėjimai bei fokusas subtilesni.
+- `Analytics → Distance goals`: įvesk savo tikslą, pasirink visas arba vieną priemonę. Tikslai saugomi kartu su istorija ir pasiekia kitą įrenginį per Drive. Excel eksporte yra `Goals` lapas; atkūrimas naudoja `History`. Tikslą galima pašalinti ir iškart atkurti per `Undo`.
+- Programėlės apačioje rodoma visos ridos dalis nuo **40 075 km** pusiaujo ilgio. Po 100 % procentas auga toliau, o juostelė lieka pilna.
+- Garaže liko vienas redagavimo pieštukas kiekvienai priemonei. Statusą taip pat galima paspausti.
+
+**Prognozė:** likusi rida dalijama iš paskutinių **30 kalendorinių dienų** vidurkio, įskaitant šiandieną ir dienas be ridos. Odometro intervalo atstumas paskirstomas dienoms nuo ankstesnės datos iki naujo įrašo: **70 km per 7 dienas → įvertis 10 km/d**. Į 30 dienų langą patenka tik persidengianti intervalo dalis. Tai planavimo įvertis, ne tikslus kasdienės veiklos matavimas.
+
+Prognozės pradinis taškas yra tavo užfiksuota rida, ne absoliutus pradinis odometras. Ateities įrašai neįtraukiami. Kai naujausios ridos nėra, istorijoje yra neaiškumų arba pasirinkta priemonė neaktyvi, data neišgalvojama. Pasiektas tikslas pažymimas kaip pasiektas. Tikslų pasirinkimas nepriklauso nuo grafiko legendos.
+
+### Išlieka 2.0.5 funkcijos
 
 - Matomi `reading / readings` pavadinimai pakeisti į `record / records`. Excel eksporte lapas vadinasi `Records`; seni `Readings` eksportai vis dar importuojami. Vidinis istorijos formatas nepakeistas.
 - Hero: tarp dviejų horizontalių linijų rodoma `All vehicles` arba pasirinktos priemonės pavadinimas. Tai keturių mažųjų statistikos blokų filtras. Viršutinis vidurkis ir toliau skaičiuoja visas priemones per visą laiką.
@@ -23,7 +40,15 @@ Versija 2.0.5 · 2026-08-30 · ratų statusai ir priežiūros priminimai
 
 Google ir GitHub nustatymų keisti nereikia. Jeigu Client ID laikai tiesiogiai `public/kairo-config.json`, o ne GitHub `GOOGLE_CLIENT_ID` kintamajame, perrašydamas išsaugok savo reikšmę. Šiam atnaujinimui jokių senų failų šalinti nereikia.
 
-**Patikra po įdiegimo:** nustatyk neveikiantį ratą į `Critical`, įsitikink, kad seni įrašai matomi, o naujo pridėti neleidžia. Kitam ratui pasirink `Active!` su pastaba, du kartus atverk garažą ir pabandyk pradėti naują įrašą — priminimas turi pasirodyti kiekvieną kartą. Patikrink Hero filtrą ir statuso atsiradimą kitame įrenginyje po sinchronizavimo.
+**Patikra po įdiegimo:**
+
+1. Pradėk naują važiavimą. Pavadinimo neįrašyk, bet įvesk tikrą odometrą; atstumas turi atsirasti automatiškai. Po išsaugojimo dar kartą atidaryk formą – turi būti pasirinkta ta pati priemonė. Jei tik bandai sąsają, atšauk formą, nesaugok išgalvotos ridos.
+2. Neveikiančiai priemonei pasirink `Critical`. Ji turi likti Fleet gale su raudona būsena; archyvas ir grafikai turi likti matomi.
+3. Išskleisk vieną Gear kortelę, pakeisk datos formatą bei savaitės pradžią ir patikrink savaitės grafiką.
+4. Sukurk bendrą ridos tikslą ir vienos priemonės tikslą. Patikrink, ar jie atsiranda kitame atnaujintame įrenginyje po sinchronizavimo.
+5. Patikrink priemonių perjungimą legendoje, greta esančius stulpelius, priartinimą bei vieną pieštuką garaže.
+
+Paketas patikrintas automatiniais domeno, saugojimo, sinchronizavimo imitacijos, Excel / JSON atkūrimo, sąsajos HTML ir GitHub Pages surinkimo testais. Gyvas prisijungimas su tavo paskyra, telefonų gestai ir galutinis vaizdas turi būti išbandyti įdiegus; šios patikros neapsimeta fizinio telefono bandymu.
 
 ### Išlieka ankstesni 2.0.4 patobulinimai
 
@@ -63,7 +88,7 @@ Visiškai uždarytos arba paslėptos PWA fono darbo negarantuojame. Po perkrovim
 
 ## 1. Pasiruošk paketą
 
-1. Atsisiųsk ir išskleisk `Kairo-Ride-2.0.5.zip` kompiuteryje.
+1. Atsisiųsk ir išskleisk `Kairo-Ride-2.0.6.zip` kompiuteryje.
 2. Atverk išskleistą `Kairo-Ride` aplanką. Jame turi matytis `package.json`, `app`, `components`, `public` ir kiti failai.
 3. **Nekelk į GitHub paties ZIP.** Reikia jo viduje esančių failų ir aplankų.
 4. Nepridėk savo Excel, JSON duomenų kopijų, nuotraukų, video, GPX ar prisijungimo paslapčių. `.gitignore` nėra apsauga nuo rankinio jų įkėlimo per svetainę.
@@ -88,7 +113,7 @@ Jei atnaujini jau sukurtą repozitoriją ir naršyklė paslėptą failą atmeta,
 
 **Prieš kiekvieną atnaujinimą visko trinti nereikia.** Į tą patį kelią įkeltas tokio pat pavadinimo failas naujame commit'e atnaujinamas. Tačiau failas, kurio naujame pakete nebėra, savaime neištrinamas ir lieka repozitorijoje.
 
-Šiam 2.0.5 paketui:
+Šiam 2.0.6 paketui:
 
 - įkelk išskleisto `Kairo-Ride` aplanko turinį į repozitorijos šaknį ir patvirtink pakeitimus;
 - senų `app`, `components`, `lib`, `public` ar kitų katalogų prieš tai netrink;
@@ -100,7 +125,7 @@ Jei atnaujini jau sukurtą repozitoriją ir naršyklė paslėptą failą atmeta,
 1. Vieną kartą pasirink `File → Clone repository` ir atsisiųsk savo `Kairo-Ride` repozitoriją.
 2. Nukopijuok naujo paketo turinį į tą vietinį aplanką ir sutik pakeisti tokio pat pavadinimo failus.
 3. Jei leidimo pastabose nurodyta pašalinti seną failą, ištrink jį tame vietiniame aplanke. **Neliesk `.git` katalogo.**
-4. GitHub Desktop lange peržiūrėk `Changes`, įrašyk, pvz., `Update Kairo Ride to 2.0.5`, pasirink `Commit to main`, tada `Push origin`.
+4. GitHub Desktop lange peržiūrėk `Changes`, įrašyk, pvz., `Update Kairo Ride to 2.0.6`, pasirink `Commit to main`, tada `Push origin`.
 
 GitHub istorija leidžia grįžti prie ankstesnio commit'o, todėl viso projekto ištrynimas prieš kiekvieną pataisą tik padidina riziką netyčia praleisti failą.
 

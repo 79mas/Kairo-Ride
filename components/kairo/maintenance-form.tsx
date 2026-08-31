@@ -15,6 +15,8 @@ import {
   maintenanceTemplate,retargetMaintenanceDraft,selectMaintenanceTemplate,toggleMaintenanceReminder,type MaintenanceDraft,
 } from "@/lib/kairo/maintenance";
 import {Field,Pick} from "./form-fields";
+import {DateInput} from "./date-input";
+import {vehicleSelectOptions} from "@/lib/kairo/vehicle-status";
 import type {EntityFormProps} from "./forms";
 
 export function MaintenanceForm({editor,state,busy,onSave,onCancel}:EntityFormProps){
@@ -26,7 +28,7 @@ export function MaintenanceForm({editor,state,busy,onSave,onCancel}:EntityFormPr
   const currentOdometer=maintenanceOdometer(state,draft.targetKind,draft.targetId);
   const selectedWheel=draft.targetKind==="wheel"?state.wheel.find(wheel=>wheel.id===draft.targetId):undefined;
   const lastReading=selectedWheel?wheelStats(selectedWheel,state.reading).lastAt:undefined;
-  const targetOptions=(draft.targetKind==="wheel"?state.wheel:state.gear).map(item=>({value:item.id,label:item.name}));
+  const targetOptions=draft.targetKind==="wheel"?vehicleSelectOptions(state,language):state.gear.map(item=>({value:item.id,label:item.name}));
   const groups=[{id:"inspection",label:tr("Inspections and checks","Apžiūros ir patikros")},{id:"condition",label:tr("Condition / component-based work","Darbai pagal būklę ar komponentą")},{id:"other",label:tr("Insurance and custom tasks","Draudimas ir kitos užduotys")}];
   const update=<K extends keyof MaintenanceDraft>(key:K,value:MaintenanceDraft[K])=>setDraft(current=>({...current,[key]:value}));
   function selectTemplate(value:string){setDraft(current=>selectMaintenanceTemplate(current,value,state,entryDay,language));}
@@ -74,7 +76,7 @@ export function MaintenanceForm({editor,state,busy,onSave,onCancel}:EntityFormPr
       <div className="maintenance-reminder-grid">
         <section className={`maintenance-reminder ${draft.dateEnabled?"enabled":""}`}>
           <label className="maintenance-toggle"><input type="checkbox" aria-label={tr("Date reminder","Priminimas pagal datą")} checked={draft.dateEnabled} onChange={event=>setDraft(current=>toggleMaintenanceReminder(current,"date",event.target.checked,state,entryDay))}/><CalendarClock/><strong>{tr("Date","Data")}</strong></label>
-          <Field label={template.id==="insurance"?tr("Insurance valid until","Draudimas galioja iki"):tr("Due date","Atlikimo data")}><Input type="date" aria-label={tr("Due date","Atlikimo data")} required={draft.dateEnabled} disabled={!draft.dateEnabled} value={draft.dueDate} onChange={event=>update("dueDate",event.target.value)}/></Field>
+          <Field label={template.id==="insurance"?tr("Insurance valid until","Draudimas galioja iki"):tr("Due date","Atlikimo data")}><DateInput aria-label={tr("Due date","Atlikimo data")} required={draft.dateEnabled} disabled={!draft.dateEnabled} value={draft.dueDate} onValueChange={value=>update("dueDate",value)}/></Field>
           <Field label={tr("Remind days before","Priminti prieš dienų")}><Input type="number" inputMode="numeric" min={0} max={3650} step={1} aria-label={tr("Reminder days","Priminimo dienos")} disabled={!draft.dateEnabled} value={draft.remindDays} onChange={event=>update("remindDays",event.target.value)}/></Field>
         </section>
         <section className={`maintenance-reminder ${draft.mileageEnabled?"enabled":""}`}>

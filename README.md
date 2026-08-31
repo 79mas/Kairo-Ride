@@ -2,7 +2,7 @@
 
 ![Kairo Ride icon](public/icon-192.png)
 
-**Version 2.0.5 · vehicle status and maintenance reminders**
+**Version 2.0.6 · quicker records, grouped charts and distance goals**
 
 A privacy-first, English-first Progressive Web App for electric unicycle riders. Track odometer history, individual rides, multi-day trips, vehicles, gear, maintenance, insurance and original ride files from both phone and desktop.
 
@@ -13,18 +13,47 @@ Kairo Ride works offline, can sync directly to each user's Google Drive, and exp
 | Area | What it does |
 | --- | --- |
 | Dashboard | Long-term km/day, km/week or km/month averages; Fleet cards; and a swipeable daily chart with interactive vehicle toggles |
-| Rides | Compact sortable table on phone and desktop, top horizontal scroll control, pinned date/header, and estimated km/d |
+| Rides | Optional names, required odometer, live distance calculation, remembered vehicle; sortable phone/desktop table with top scrolling and estimated km/d |
 | Trips | Groups rides and files into single-day or multi-day journeys |
 | Garage | Manages multiple electric unicycles, their status, maintenance reminders and independent odometer histories |
 | Maintenance | 20 inspection, condition-based work, insurance and custom templates; editable date / odometer autofill, independent reminder checkboxes and recurring checks |
-| Gear | Tracks helmets, footwear, protection, clothing, cameras, Cardo units, accessories and “Used with” relationships |
-| Analytics | Draggable and zoomable cumulative, monthly and daily charts; both axes fit the visible vehicles and the selected zoom range |
+| Gear | Collapsible item cards for helmets, footwear, cameras, Cardo and accessories, with “Used with” relationships |
+| Analytics | Draggable/zoomable cumulative and grouped bar charts; visible-series autoscale; custom total/vehicle goals with 30-day-average forecasts |
+| Settings | English/Lithuanian, date format, week start, reminders, Drive sync, backups and installation |
 | Attachments | Associates GPX, WheelLog, Komoot exports, photos, videos, and other original files with rides or trips |
 | Data tools | Imports supported backups and exports JSON or a real `.xlsx` workbook |
 
 The interface uses a fixed black/orange theme with `#f16305` as the primary colour and is responsive on phones and desktop browsers. English is the default language; Lithuanian can be selected in Settings. The included web app manifest, service worker, favicons, Apple touch icon, and maskable icons make it installable as a PWA.
 
-## New in 2.0.5
+## New in 2.0.6
+
+- **New ride:** a name is optional; the complete odometer is required. Distance updates immediately from the previous odometer for that vehicle and date. It is no longer a separate manual input.
+- The last successfully used vehicle is selected for the next new ride. This preference is per device and data account. If it is inactive or missing, the most recent eligible vehicle in the synced history is used, then the first eligible vehicle.
+- Old distance-only rides are kept. You may edit their name, notes and trip without inventing an odometer. Add an odometer before changing the date, vehicle or distance of such a record.
+- Dates display and accept **yyyy/mm/dd** by default, including date-entry calendars. **Settings → Dates & calendar** offers five date formats and any week-start day (Monday by default). These are device preferences, independent of language. Weekly charts, totals and calendars use the chosen start day; timestamps and export data remain machine-readable and unchanged.
+- Inactive vehicles stay visible at the end of Fleet, with conspicuous red status badges. Vehicle selectors show their status; archives and charts remain accessible. Garage has just one edit pencil per vehicle.
+- Gear cards start collapsed, showing the category icon and item name. Expand a card to see its details, linked gear and edit controls.
+- Bar charts are **grouped side by side**, not stacked. Their zero-based scale fits the largest visible individual bar in the selected range. Legends still toggle vehicles and the Brush still zooms. Chart hover, focus and selection use quieter depth and contrast.
+- **Analytics → Distance goals:** enter your own target in kilometres for all vehicles or a specific vehicle. Each goal is saved in local history, synced to your Drive and included in JSON/Excel recovery. Delete a goal with the trash button; immediate Undo is available.
+- A compact page-bottom bar compares all-time total distance with **40,075 km**, the equator reference. The percentage may exceed 100%; the bar itself stops at full.
+
+### Goal calculations
+
+Targets refer to your **tracked distance**, not the vehicle's absolute odometer at purchase.
+
+```text
+30-day average = distance attributed to the last 30 calendar days / 30
+days remaining = ceiling((target km - current tracked km) / 30-day average)
+estimated date = today + days remaining
+```
+
+The window includes today and days with zero distance. For a sparse odometer journal, each interval is distributed evenly over the days after the previous odometer date through the new record date; same-day records count on that day. For example, 70 km across seven days contributes an estimated 10 km/day. Legacy distance-only rides count on their recorded day. This is a planning estimate, not measured daily activity; no riding is inferred after the last record.
+
+The date is not predicted without recent distance, for inconsistent/incomplete history, or for a selected inactive vehicle. A reached goal is labelled as reached. Future-dated records are excluded from the goal's current distance and rolling average. Goal scope is independent of the chart legend.
+
+**Compatibility:** update every phone/computer window to **2.0.6 before saving unnamed rides or goals**. Older strict validators do not understand the new goal kind or empty ride names. Old operations are not rewritten; database names, record IDs, Google access and existing files stay unchanged.
+
+## Added in 2.0.5
 
 - User-facing odometer terminology is **record / records**, including the Excel **Records** report sheet.
 - The Hero has a second horizontal divider, with **All vehicles** or the selected vehicle between the two lines. This label applies to the four secondary totals. The top km/d, km/w or km/m average still covers all vehicles and all time.
@@ -48,7 +77,7 @@ The popup appears on every Garage visit and whenever you start a new record with
 
 All vehicles remain in Fleet, statistics, filters and historical rides. You may edit an existing archived record or add ride details to a legacy record, but cannot create a new record or move a record onto a different inactive vehicle. Historical imports, sync and recovery still work. Reactivate a vehicle in Garage when it is ready for new records. Offline devices only know the status they last synchronized.
 
-The internal history key `reading` is intentionally unchanged to preserve old backups and operation IDs. Older Excel exports with a `Readings` report sheet still import. The Wheels export includes current status, saved status and manual reminder text; History remains the authoritative recovery data. Update **all devices to 2.0.5 before saving vehicle statuses**: older strict validators do not understand the new fields.
+The internal history key `reading` is intentionally unchanged to preserve old backups and operation IDs. Older Excel exports with a `Readings` report sheet still import. The Wheels export includes current status, saved status and manual reminder text; History remains the authoritative recovery data. Status fields were introduced in 2.0.5; update all devices to the current **2.0.6** release to use statuses, unnamed rides and goals together.
 
 ## Privacy and storage model
 
@@ -184,7 +213,7 @@ JSON and Excel backups contain attachment metadata and Drive links, **not the or
 
 ## Important limitations
 
-- Version 2.0.5 is an early product build. Automated checks cover domain logic, storage, recovery, rendered UI contracts and static PWA output. Real Google OAuth, the final GitHub Pages deployment, visual layout and physical-phone interaction must still be verified with the owner's accounts and devices.
+- Version 2.0.6 is an early product build. Automated checks cover domain logic, storage, recovery, rendered UI contracts and static PWA output. Real Google OAuth, the final GitHub Pages deployment, visual layout and physical-phone interaction must still be verified with the owner's accounts and devices.
 - A single attachment is limited to 512 MB. An imported backup is limited to 25 MB. The browser may impose a lower practical storage limit.
 - Large uploads are not guaranteed to continue after the PWA is closed or suspended. Keep the app open until synchronization finishes.
 - Maintenance and insurance notifications are local. They are checked while the PWA is open or active; a fully closed mobile PWA cannot guarantee a scheduled alert without a push-notification server.
@@ -250,9 +279,9 @@ For browser-only updates, upload the package contents to the repository root and
 
 For repeated updates, GitHub Desktop is safer and easier to review: clone the repository once, copy the new package contents over the local clone, review modified and deleted files, commit, and choose [**Push origin**](https://docs.github.com/en/desktop/making-changes-in-a-branch/pushing-changes-to-github-from-github-desktop). Never delete the local `.git` directory.
 
-Version 2.0.5 does not require deleting any application directory or changing OAuth configuration. This archive includes the earlier 2.0.4 fixes and maintenance templates. Upload the whole package, including both new `vehicle-status` modules. Existing deployment settings and repository variables remain unchanged. If you configured the public client ID directly in `public/kairo-config.json` instead of a repository variable, preserve that value when replacing the file. No application files need to be removed for this patch.
+Version 2.0.6 does not require deleting any application directory or changing OAuth configuration. This archive includes the earlier 2.0.4 and 2.0.5 fixes. Upload the whole package, including the new calendar, records and goals modules. Existing deployment settings and repository variables remain unchanged. If you configured the public client ID directly in `public/kairo-config.json` instead of a repository variable, preserve that value when replacing the file. No application files need to be removed for this patch.
 
-Before updating, export a JSON backup and preserve any unsynced original attachments. Keep the same site URL. Wait for the successful deployment, reload the app while online to fetch the update, close **all** Kairo Ride tabs/windows on each device, and reopen. The service worker intentionally waits for old windows to close before activating its new cache. Do not clear browser data or uninstall the PWA to update: this could discard unsynced records. Confirm **2.0.5** in the footer on both phone and computer before editing a vehicle status. Refresh Google access if asked. Existing records do not need reimporting; database names and history version are unchanged.
+Before updating, export a JSON backup and preserve any unsynced original attachments. Keep the same site URL. Wait for the successful deployment, reload the app while online to fetch the update, close **all** Kairo Ride tabs/windows on each device, and reopen. The service worker intentionally waits for old windows to close before activating its new cache. Do not clear browser data or uninstall the PWA to update: this could discard unsynced records. Confirm **2.0.6** in the footer on both phone and computer before saving unnamed rides or goals. Refresh Google access if asked. Existing records do not need reimporting; database names and history version are unchanged.
 
 ## Release checklist
 

@@ -134,7 +134,7 @@ export class DriveClient {
     }
     const ride=state.ride.find(r=>r.id===id);if(!ride)throw new Error("The attachment's ride was not found.");
     const parent=ride.tripId?await this.ownerFolder("trip",ride.tripId,state):await this.folder("rides","Rides",root.id);
-    return this.folder(`ride-${id}`,`${ride.localDate??ride.at.slice(0,10)}_${ride.name}_${id.slice(0,8)}`,parent.id);
+    return this.folder(`ride-${id}`,`${ride.localDate??ride.at.slice(0,10)}_${ride.name||"Ride"}_${id.slice(0,8)}`,parent.id);
   }
   async getOperation(file:DriveFile):Promise<Operation>{
     const response=await this.fetch(`${API}/files/${file.id}?alt=media`);

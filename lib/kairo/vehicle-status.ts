@@ -1,4 +1,4 @@
-import {canRecordWithWheel, storedWheelStatus, type Maintenance, type State, type Wheel, type WheelStatus} from "./domain";
+import {canRecordWithWheel, storedWheelStatus, wheelStatusLabels, type Maintenance, type State, type Wheel, type WheelStatus} from "./domain";
 import {maintenanceStatus} from "./stats";
 
 export const ltWheelStatusLabels: Record<WheelStatus, string> = {
@@ -26,4 +26,20 @@ export function effectiveWheelStatus(wheel: Wheel, state: State, now = new Date(
 
 export function garageReminders(state: State, now = new Date()): VehicleReminder[] {
   return state.wheel.flatMap(wheel => { const reminder = vehicleReminder(wheel, state, now); return reminder ? [reminder] : []; });
+}
+
+export function orderedVehicles(wheels: Wheel[]): Wheel[] {
+  return wheels.map((wheel, index) => ({wheel, index})).sort((a, b) =>
+    Number(!canRecordWithWheel(a.wheel)) - Number(!canRecordWithWheel(b.wheel)) || a.index - b.index
+  ).map(item => item.wheel);
+}
+export function vehicleChoiceLabel(wheel: Wheel, state: State, language = "en"): string {
+  const status = effectiveWheelStatus(wheel, state);
+  return `${wheel.name} · ${language === "lt" ? ltWheelStatusLabels[status] : wheelStatusLabels[status]}`;
+}
+export function vehicleSelectOptions(state: State, language = "en") {
+  return orderedVehicles(state.wheel).map(wheel => ({
+    value: wheel.id, label: vehicleChoiceLabel(wheel, state, language),
+    className: !canRecordWithWheel(wheel) ? "vehicle-option-inactive" : undefined,
+  }));
 }

@@ -1,7 +1,8 @@
 import { z } from "zod";
+import {displayDate} from "./calendar";
 
 export const SCHEMA_VERSION = 1 as const;
-export const KINDS = ["wheel", "reading", "ride", "trip", "gear", "maintenance", "attachment"] as const;
+export const KINDS = ["wheel", "reading", "ride", "trip", "gear", "maintenance", "attachment", "goal"] as const;
 export type Kind = typeof KINDS[number];
 const id = z.string().min(1).max(160).regex(/^[a-zA-Z0-9_-]+$/);
 const text = z.string().max(20_000);
@@ -36,8 +37,11 @@ export const tripSchema = z.object({
   id, name, startDate: day, endDate: day, notes: text,
 }).strict().refine(t => t.endDate >= t.startDate, "A trip cannot end before it starts.");
 export const rideSchema = z.object({
-  id, name, wheelId: id, tripId: id.nullable(), at: instant,
+  id, name: z.string().trim().max(160), wheelId: id, tripId: id.nullable(), at: instant,
   distanceKm: km.nullable(), notes: text, localDate: day.optional(), timeZone: timeZone.optional(),
+}).strict();
+export const goalSchema = z.object({
+  id, wheelId: id.nullable(), targetKm: km.refine(value => value > 0, "Enter a target greater than zero."), createdAt: instant,
 }).strict();
 export const GEAR_CATEGORIES = ["helmet", "footwear", "protection", "gloves", "clothing", "camera", "intercom", "bag", "charging", "other"] as const;
 export const GEAR_STATUSES = ["active", "spare", "retired"] as const;
@@ -76,9 +80,10 @@ export type Ride = z.infer<typeof rideSchema>;
 export type Gear = z.infer<typeof gearSchema>;
 export type Maintenance = z.infer<typeof maintenanceSchema>;
 export type Attachment = z.infer<typeof attachmentSchema>;
-export type Entity = Wheel | Reading | Trip | Ride | Gear | Maintenance | Attachment;
-export type Entities = { wheel: Wheel; reading: Reading; trip: Trip; ride: Ride; gear: Gear; maintenance: Maintenance; attachment: Attachment };
-export const schemas = { wheel: wheelSchema, reading: readingSchema, trip: tripSchema, ride: rideSchema, gear: gearSchema, maintenance: maintenanceSchema, attachment: attachmentSchema };
+export type Goal = z.infer<typeof goalSchema>;
+export type Entity = Wheel | Reading | Trip | Ride | Gear | Maintenance | Attachment | Goal;
+export type Entities = { wheel: Wheel; reading: Reading; trip: Trip; ride: Ride; gear: Gear; maintenance: Maintenance; attachment: Attachment; goal: Goal };
+export const schemas = { wheel: wheelSchema, reading: readingSchema, trip: tripSchema, ride: rideSchema, gear: gearSchema, maintenance: maintenanceSchema, attachment: attachmentSchema, goal: goalSchema };
 
 export const storedWheelStatus = (wheel: Wheel): WheelStatus => wheel.status ?? "active";
 export function canRecordWithWheel(wheel: Wheel | undefined): boolean {
@@ -103,7 +108,7 @@ export type Operation = { version: 1; id: string; deviceId: string; createdAt: s
 export type Revision = { operationId: string; createdAt: string; deviceId: string; value: Entity | null };
 export type Conflict = { kind: Kind; entityId: string; revisions: Revision[] };
 export type State = {
-  wheel: Wheel[]; reading: Reading[]; ride: Ride[]; trip: Trip[]; gear: Gear[]; maintenance: Maintenance[]; attachment: Attachment[];
+  wheel: Wheel[]; reading: Reading[]; ride: Ride[]; trip: Trip[]; gear: Gear[]; maintenance: Maintenance[]; attachment: Attachment[]; goal: Goal[];
   heads: Map<string, Revision[]>; conflicts: Conflict[]; integrity: string[];
 };
 const operationSchema = z.object({
@@ -159,7 +164,7 @@ export function project(operations: Operation[]): State {
       for (const parent of change.parents) group.parents.add(parent);
     }
   }
-  const state: State = { wheel: [], reading: [], ride: [], trip: [], gear: [], maintenance: [], attachment: [], heads: new Map(), conflicts: [], integrity: [] };
+  const state: State = { wheel: [], reading: [], ride: [], trip: [], gear: [], maintenance: [], attachment: [], goal: [], heads: new Map(), conflicts: [], integrity: [] };
   for (const [key, group] of groups) {
     for (const parent of group.parents) if (!group.revisions.has(parent)) state.integrity.push(`Record history is incomplete: ${key}.`);
     // Iterative DAG validation also catches a disconnected cycle beside a valid head.
@@ -182,6 +187,7 @@ export function project(operations: Operation[]): State {
   state.trip.sort((a,b) => b.startDate.localeCompare(a.startDate));
   state.gear.sort((a,b) => a.name.localeCompare(b.name, "lt") || a.id.localeCompare(b.id, "en"));
   state.maintenance.sort((a,b) => (a.completedAt ? 1 : 0) - (b.completedAt ? 1 : 0) || (a.dueDate ?? "9999-12-31").localeCompare(b.dueDate ?? "9999-12-31") || a.title.localeCompare(b.title, "en"));
+  state.goal.sort((a,b) => (a.wheelId ?? "").localeCompare(b.wheelId ?? "") || a.targetKm - b.targetKm || a.id.localeCompare(b.id, "en"));
   const wheels = new Set(state.wheel.map(w => w.id));
   const trips = new Set(state.trip.map(t => t.id));
   const rides = new Set(state.ride.map(r => r.id));
@@ -191,6 +197,7 @@ export function project(operations: Operation[]): State {
   for (const a of state.attachment) if (!(a.ownerKind === "trip" ? trips : rides).has(a.ownerId)) state.integrity.push("An attachment's trip or ride was removed or has not synced yet.");
   for (const g of state.gear) for (const linked of g.usedWithGearIds ?? []) if (!gear.has(linked)) state.integrity.push("Gear is linked to an item that was removed or has not synced yet.");
   for (const m of state.maintenance) if (!(m.targetKind === "wheel" ? wheels : gear).has(m.targetId)) state.integrity.push("A maintenance task is linked to an item that was removed or has not synced yet.");
+  for (const goal of state.goal) if (goal.wheelId && !wheels.has(goal.wheelId)) state.integrity.push("A goal is linked to a vehicle that was removed or has not synced yet.");
   state.integrity = [...new Set(state.integrity)];
   return state;
 }
@@ -241,6 +248,11 @@ export function validateEdit(state: State, kind: Kind, entity: Entity): void {
     const r = entity as Ride;
     if (r.tripId && !state.trip.some(t => t.id === r.tripId)) throw new Error("Select an existing trip.");
   }
+  if (kind === "goal") {
+    const goal = entity as Goal;
+    if (goal.wheelId && !state.wheel.some(wheel => wheel.id === goal.wheelId)) throw new Error("Choose an existing vehicle or All vehicles.");
+    if (state.goal.some(item => item.id !== goal.id && item.wheelId === goal.wheelId && item.targetKm === goal.targetKm)) throw new Error("This distance goal already exists.");
+  }
   if (kind === "gear") {
     const g = entity as Gear;
     if ((g.usedWithGearIds ?? []).includes(g.id)) throw new Error("A gear item cannot be used with itself.");
@@ -274,7 +286,7 @@ export function validateEdit(state: State, kind: Kind, entity: Entity): void {
 }
 
 export function validateDelete(state: State, kind: Kind, entityId: string) {
-  if (kind === "wheel" && ([...state.reading, ...state.ride].some(r => r.wheelId === entityId) || state.maintenance.some(m => m.targetKind === "wheel" && m.targetId === entityId))) throw new Error("This vehicle has linked records or maintenance tasks. They will not be deleted automatically.");
+  if (kind === "wheel" && ([...state.reading, ...state.ride].some(r => r.wheelId === entityId) || state.maintenance.some(m => m.targetKind === "wheel" && m.targetId === entityId) || state.goal.some(goal => goal.wheelId === entityId))) throw new Error("This vehicle has linked records, maintenance tasks or goals. They will not be deleted automatically.");
   if (kind === "trip" && state.ride.some(r => r.tripId === entityId)) throw new Error("Unlink the trip's rides or assign them to another trip first.");
   if ((kind === "ride" || kind === "trip") && state.attachment.some(a => a.ownerKind === kind && a.ownerId === entityId)) throw new Error("Remove this record's attachment links first. The originals will remain in Drive.");
   if (kind === "gear" && (state.gear.some(g => (g.usedWithGearIds ?? []).includes(entityId)) || state.maintenance.some(m => m.targetKind === "gear" && m.targetId === entityId))) throw new Error("This gear item is referenced by another item or maintenance task. Remove those links first.");
@@ -304,4 +316,4 @@ export function localDateTime(iso?: string) {
 }
 export const today = () => localDateTime().slice(0,10);
 export const formatKm = (n: number | null, locale="en-US") => n === null ? "—" : new Intl.NumberFormat(locale, {maximumFractionDigits: 1}).format(n);
-export const formatDate = (s: string, time = false, timeZone?: string, locale="en-US") => new Intl.DateTimeFormat(locale, {year:"numeric",month:"2-digit",day:"2-digit", ...(time ? {hour:"2-digit",minute:"2-digit"} as const : {}),...(timeZone&&s.length!==10?{timeZone}:{})}).format(new Date(s.length === 10 ? `${s}T12:00:00` : s));
+export const formatDate = displayDate;

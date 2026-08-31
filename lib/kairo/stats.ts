@@ -1,4 +1,5 @@
 import {roundKm,wheelStats,type Maintenance,type Reading,type Ride,type State,type Trip} from "./domain";
+import {formatDateKey,formatMonthKey,readCalendarPreferences,type DateFormat,type WeekStart} from "./calendar";
 
 export type ChartMode="week"|"month";
 export type DistanceEvent={date:string;wheelId:string;distance:number};
@@ -22,10 +23,17 @@ export function rideEntries(state:State):RideEntry[]{
   for(const wheel of state.wheel)for(const interval of wheelStats(wheel,state.reading).intervals)intervalByReading.set(interval.reading.id,{reading:interval.reading,distance:interval.distance,warning:interval.warning});
   const available=new Set(state.reading.map(reading=>reading.id)),byMoment=new Map<string,Reading[]>();
   for(const reading of state.reading){const key=`${reading.wheelId}|${reading.at}`,list=byMoment.get(key)??[];list.push(reading);byMoment.set(key,list);}
+  const readingById=new Map(state.reading.map(reading=>[reading.id,reading]));
+  // Reserve explicit links before trying old timestamp-only associations.
+  // A distance-only ride at the same time must not steal another ride's record.
+  const exactIds=new Set(state.ride.flatMap(ride=>{
+    const reading=readingById.get(ride.id);
+    return reading&&reading.wheelId===ride.wheelId&&reading.at===ride.at?[reading.id]:[];
+  }));
   const entries:RideEntry[]=[];
   for(const ride of state.ride){
-    let reading=available.has(ride.id)?state.reading.find(item=>item.id===ride.id):undefined;
-    if(!reading)reading=(byMoment.get(`${ride.wheelId}|${ride.at}`)??[]).find(item=>available.has(item.id));
+    let reading=available.has(ride.id)&&exactIds.has(ride.id)?readingById.get(ride.id):undefined;
+    if(!reading)reading=(byMoment.get(`${ride.wheelId}|${ride.at}`)??[]).find(item=>available.has(item.id)&&!exactIds.has(item.id));
     if(reading)available.delete(reading.id);
     const interval=reading?intervalByReading.get(reading.id):undefined;
     entries.push({key:`ride:${ride.id}`,ride,reading,at:ride.at,wheelId:ride.wheelId,name:ride.name,tripId:ride.tripId,odometerKm:reading?.odometerKm??null,distanceKm:reading?interval?.distance??null:ride.distanceKm,intervalDays:null,kmPerDay:null,notes:ride.notes||reading?.notes||"",warning:interval?.warning??null});
@@ -85,11 +93,11 @@ export function distanceEvents(state:State):DistanceEvent[]{
   }).sort((a,b)=>a.date.localeCompare(b.date)||a.wheelId.localeCompare(b.wheelId,"en"));
 }
 
-export function periodWindow(mode:ChartMode,offset=0,now=new Date()){
+export function periodWindow(mode:ChartMode,offset=0,now=new Date(),weekStartsOn:WeekStart=1){
   let start:Date;
   if(mode==="week"){
     const current=new Date(now.getFullYear(),now.getMonth(),now.getDate());
-    const mondayOffset=(current.getDay()+6)%7;
+    const mondayOffset=(current.getDay()-weekStartsOn+7)%7;
     start=addDays(current,-mondayOffset+offset*7);
     return {start,end:addDays(start,6)};
   }
@@ -97,8 +105,8 @@ export function periodWindow(mode:ChartMode,offset=0,now=new Date()){
   return {start,end:new Date(start.getFullYear(),start.getMonth()+1,0)};
 }
 
-export function periodData(state:State,mode:ChartMode,offset=0,locale="en-US",now=new Date()){
-  const {start,end}=periodWindow(mode,offset,now),events=distanceEvents(state);
+export function periodData(state:State,mode:ChartMode,offset=0,locale="en-US",now=new Date(),weekStartsOn:WeekStart=1,dateFormat:DateFormat=readCalendarPreferences().dateFormat){
+  const {start,end}=periodWindow(mode,offset,now,weekStartsOn),events=distanceEvents(state);
   const points:PeriodPoint[]=[];
   for(let day=new Date(start);day<=end;day=addDays(day,1)){
     const key=dateKey(day),point:PeriodPoint={date:key,label:mode==="week"?new Intl.DateTimeFormat(locale,{weekday:"short"}).format(day):String(day.getDate()),total:0};
@@ -106,19 +114,19 @@ export function periodData(state:State,mode:ChartMode,offset=0,locale="en-US",no
     points.push(point);
   }
   const title=mode==="week"
-    ?`${new Intl.DateTimeFormat(locale,{month:"short",day:"numeric"}).format(start)} – ${new Intl.DateTimeFormat(locale,{month:"short",day:"numeric",year:"numeric"}).format(end)}`
-    :new Intl.DateTimeFormat(locale,{month:"long",year:"numeric"}).format(start);
+    ?`${formatDateKey(dateKey(start),dateFormat)} – ${formatDateKey(dateKey(end),dateFormat)}`
+    :formatMonthKey(dateKey(start).slice(0,7),dateFormat);
   return {points,start,end,title,total:roundKm(points.reduce((sum,p)=>sum+p.total,0))};
 }
 
 export type Metric="all"|"year"|"month"|"week";
-export function metricDistance(state:State,metric:Metric,wheelId="all",now=new Date()){
+export function metricDistance(state:State,metric:Metric,wheelId="all",now=new Date(),weekStartsOn:WeekStart=1){
   const events=distanceEvents(state).filter(e=>wheelId==="all"||e.wheelId===wheelId);
   if(metric==="all")return roundKm(events.reduce((sum,e)=>sum+e.distance,0));
   let start:Date;
   if(metric==="year")start=new Date(now.getFullYear(),0,1);
   else if(metric==="month")start=new Date(now.getFullYear(),now.getMonth(),1);
-  else start=periodWindow("week",0,now).start;
+  else start=periodWindow("week",0,now,weekStartsOn).start;
   const from=dateKey(start),to=dateKey(now);
   return roundKm(events.filter(e=>e.date>=from&&e.date<=to).reduce((sum,e)=>sum+e.distance,0));
 }
@@ -164,12 +172,12 @@ export function dailySeries(state:State,wheelIds=state.wheel.map(w=>w.id)):Serie
 
 /** Fit only the visible series in the current zoom window, never hidden totals.
  * Bars retain a truthful zero baseline; lines may zoom their vertical range. */
-export function fitChartDomain(points:SeriesPoint[],wheelIds:string[],kind:"line"|"stacked"):[number,number]{
+export function fitChartDomain(points:SeriesPoint[],wheelIds:string[],kind:"line"|"stacked"|"grouped"):[number,number]{
   if(!points.length||!wheelIds.length)return [0,1];
   const values=kind==="stacked"?points.map(point=>wheelIds.reduce((sum,id)=>sum+(Number(point[id])||0),0)):points.flatMap(point=>wheelIds.map(id=>Number(point[id]??0))).filter(Number.isFinite);
   let low=Infinity,high=-Infinity;for(const value of values){low=Math.min(low,value);high=Math.max(high,value);}
   if(!Number.isFinite(high)||high<=0)return [0,1];
-  if(kind==="stacked")return [0,high*1.05];
+  if(kind!=="line")return [0,high*1.05];
   const padding=(high-low||high)*.05;
   return [Math.max(0,low-padding),high+padding];
 }

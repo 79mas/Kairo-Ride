@@ -364,3 +364,22 @@ test("Drive rate-limit 403 is retryable, but storage quota and permissions are n
     await assert.rejects(()=>client.about(),error=>error.status===status);
   }
 });
+
+test("2.0.6 goals and unnamed rides sync through Drive history, snapshots and original file folders",async()=>{
+  const permissionId="990000000003",ns=`google:${permissionId}`,remote=memoryDrive(permissionId),client=new DriveClient("test-token",Date.now()+3600000,remote.fetcher);
+  const record=reading("unnamed-206","02",150),unnamed={...ride(record.id,null,null),name:"",at:record.at};
+  const goal={id:"drive-goal-206",wheelId:wheel.id,targetKm:10000,createdAt:"2026-08-30T12:00:00.000Z"};
+  await db.commitChanges(ns,[change("wheel",wheel),change("ride",unnamed),change("reading",record),change("goal",goal)]);
+  const original=new Blob(["untouched GPX"]);
+  const attachment={id:"file-206",ownerKind:"ride",ownerId:record.id,name:"ride.gpx",mimeType:"application/gpx+xml",size:original.size,addedAt:goal.createdAt};
+  await db.commit(ns,"attachment",attachment,attachment.id,original);
+  await client.sync(ns,()=>{});
+  assert.equal((await db.loadWorkspace(ns)).pending.length,0);
+  const replica=`replica-206-${crypto.randomUUID()}`;await client.pull(replica,()=>{});
+  const state=(await db.loadWorkspace(replica)).state;
+  assert.deepEqual(state.goal,[goal]);assert.equal(state.ride[0].name,"");assert.equal(state.reading[0].odometerKm,150);
+  assert.equal(new TextDecoder().decode(remote.files.get(state.attachment[0].driveId).content),"untouched GPX");
+  const snapshot=[...remote.files.values()].find(file=>file.name==="database.json");
+  assert.deepEqual(d.project(d.parseBackup(snapshot.content)).goal,[goal]);
+  assert.ok([...remote.files.values()].some(file=>file.name.includes("_Ride_")),"Unnamed ride folders have a usable fallback name");
+});
