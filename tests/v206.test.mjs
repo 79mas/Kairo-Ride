@@ -227,7 +227,7 @@ test("goals validate scope and positive targets, and protect referenced vehicles
   assert.throws(()=>d.validateEdit(state,"goal",{...goal,id:"duplicate"}),/already/);
   assert.throws(()=>d.validateEdit(state,"goal",{...goal,id:"missing",wheelId:"missing"}),/vehicle/i);
   assert.doesNotThrow(()=>d.validateEdit(state,"goal",{...goal,id:"vehicle-goal",wheelId:wheel.id}));
-  assert.throws(()=>d.validateDelete(fixture({goals:[{...goal,wheelId:wheel.id}]}).state,"wheel",wheel.id),/goals/);
+  assert.doesNotThrow(()=>d.validateDelete(fixture({goals:[{...goal,wheelId:wheel.id}]}).state,"wheel",wheel.id));
 });
 test("goals and unnamed rides survive exact JSON, XLSX and independent-device history recovery",async()=>{
   const {operations}=fixture({records:[record],rides:[ride],goals:[goal,{...goal,id:"single-goal",wheelId:wheel.id}]});

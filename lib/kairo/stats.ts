@@ -1,4 +1,4 @@
-import {roundKm,wheelStats,type Maintenance,type Reading,type Ride,type State,type Trip} from "./domain";
+import {activeState,roundKm,wheelStats,type Maintenance,type Reading,type Ride,type State,type Trip} from "./domain";
 import {formatDateKey,formatMonthKey,readCalendarPreferences,type DateFormat,type WeekStart} from "./calendar";
 
 export type ChartMode="week"|"month";
@@ -19,6 +19,7 @@ const addDays=(d:Date,n:number)=>{const next=new Date(d);next.setDate(next.getDa
 
 /** Joins the app's single Ride workflow while preserving separate ride/reading records in storage. */
 export function rideEntries(state:State):RideEntry[]{
+  state=activeState(state);
   const intervalByReading=new Map<string,{reading:Reading;distance:number|null;warning:string|null}>();
   for(const wheel of state.wheel)for(const interval of wheelStats(wheel,state.reading).intervals)intervalByReading.set(interval.reading.id,{reading:interval.reading,distance:interval.distance,warning:interval.warning});
   const available=new Set(state.reading.map(reading=>reading.id)),byMoment=new Map<string,Reading[]>();

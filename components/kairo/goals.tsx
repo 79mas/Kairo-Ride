@@ -1,77 +1,53 @@
 "use client";
-import {useState, type FormEvent} from "react";
-import {Check, Globe2, LoaderCircle, Plus, Target, Trash2} from "lucide-react";
-import {toast} from "sonner";
+import {useState,type FormEvent} from "react";
+import {Globe2,Pencil,Plus,Target,Trash2} from "lucide-react";
 import {Button} from "@/components/ui/button";
 import {Input} from "@/components/ui/input";
 import {Progress} from "@/components/ui/progress";
-import {Field, Pick} from "./form-fields";
+import {Dialog,DialogContent,DialogHeader,DialogTitle,DialogDescription,DialogFooter} from "@/components/ui/dialog";
+import {toast} from "sonner";
+import {Field,Pick} from "./form-fields";
 import {VehicleStatusBadge} from "./vehicle-status";
-import {EARTH_EQUATOR_KM, earthProgress, forecastGoal} from "@/lib/kairo/goals";
-import {formatDate, formatKm, type State} from "@/lib/kairo/domain";
-import {useI18n} from "@/lib/kairo/i18n";
+import {DateInput} from "./date-input";
+import {defaultEarthGoal,forecastGoal,goalWindow} from "@/lib/kairo/goals";
+import {entityKey,formatDate,formatKm,uuid,type Goal,type State} from "@/lib/kairo/domain";
 import {vehicleSelectOptions} from "@/lib/kairo/vehicle-status";
-import {friendlyError} from "@/lib/kairo/storage";
+import {useI18n} from "@/lib/kairo/i18n";
 import type {ViewActions} from "./views";
 
-export function GoalForecasts({state, actions}: {state: State; actions?: ViewActions}) {
-  const {tr, locale, language} = useI18n();
-  const [scope, setScope] = useState("all"), [target, setTarget] = useState(""), [busy, setBusy] = useState(false);
-  const chosenScope = scope === "all" || state.wheel.some(wheel => wheel.id === scope) ? scope : "all";
-  async function submit(event: FormEvent) {
-    event.preventDefault();
-    if (busy || !actions?.addGoal) return;
-    const value = Number(target.trim().replace(/\s/g, "").replace(",", "."));
-    if (!Number.isFinite(value) || value <= 0) {toast.error(tr("Enter a target greater than zero.", "Įvesk tikslą, didesnį už nulį.")); return;}
-    setBusy(true);
-    try {await actions.addGoal(value, chosenScope === "all" ? null : chosenScope); setTarget("");}
-    catch (error) {toast.error(friendlyError(error));}
-    finally {setBusy(false);}
-  }
-  return <section className="goal-section panel">
-    <div className="chart-heading"><div><p className="eyebrow">{tr("NEXT MILESTONES", "KITI TIKSLAI")}</p><h2><Target/>{tr("Distance goals", "Ridos tikslai")}</h2></div></div>
-    <p className="field-hint">{tr("Choose a personal mileage target for all vehicles or just one. Targets use your tracked distance, excluding each vehicle’s baseline odometer.", "Pasirink asmeninį visų arba vienos priemonės ridos tikslą. Naudojama tavo užfiksuota rida, neįtraukiant pradinio odometro.")}</p>
-    <form className="goal-form" onSubmit={event => void submit(event)}>
-      <Field label={tr("Goal scope", "Kam taikomas tikslas")}><Pick label={tr("Goal scope", "Kam taikomas tikslas")} value={chosenScope} onChange={setScope}
-        options={[{value: "all", label: tr("All vehicles", "Visos priemonės")}, ...vehicleSelectOptions(state, language)]}/></Field>
-      <Field label={tr("Target distance, km", "Tikslinė rida, km")}><Input aria-label={tr("Target distance", "Tikslinė rida")} inputMode="decimal"
-        required value={target} onChange={event => setTarget(event.target.value)} placeholder="10 000" maxLength={20}/></Field>
-      <Button type="submit" disabled={busy || !actions?.addGoal}>{busy ? <LoaderCircle className="spin"/> : <Plus/>}{tr("Add goal", "Pridėti tikslą")}</Button>
-    </form>
-    {!!state.goal.length && <div className="goal-grid">{state.goal.map(goal => {
-      const forecast = forecastGoal(state, goal), wheel = goal.wheelId ? state.wheel.find(item => item.id === goal.wheelId) : undefined;
-      const scopeLabel = goal.wheelId ? wheel?.name ?? tr("Vehicle unavailable", "Priemonė nepasiekiama") : tr("All vehicles", "Visos priemonės");
-      const status = forecast.status === "achieved" ? tr("Goal reached", "Tikslas pasiektas")
-        : forecast.status === "inactive" ? tr("Forecast paused · vehicle inactive", "Prognozė sustabdyta · priemonė neaktyvi")
-        : forecast.status === "invalid_history" ? tr("Review incomplete or inconsistent records", "Patikrink nepilnus arba prieštaringus įrašus")
-        : forecast.status === "out_of_range" ? tr("Not enough recent distance for a useful date", "Per mažai naujausios ridos prasmingai datai")
-        : tr("No distance recorded in the last 30 days", "Per paskutines 30 dienų rida neužfiksuota");
-      return <article className="goal-card" key={goal.id}>
-        <div className="section-heading"><strong>{scopeLabel}</strong><Button type="button" variant="ghost" size="icon"
-          disabled={!actions} aria-label={`${tr("Delete goal", "Pašalinti tikslą")}: ${formatKm(goal.targetKm, locale)} km · ${scopeLabel}`}
-          onClick={() => actions?.askDelete("goal", goal)}><Trash2/></Button></div>
-        {wheel && <VehicleStatusBadge wheel={wheel} state={state}/>}
-        <div className="goal-distance"><strong>{formatKm(goal.targetKm, locale)}</strong><span>km</span></div>
-        <Progress value={Math.min(100, forecast.progressPercent)} aria-label={`${scopeLabel} · ${tr("Goal progress", "Tikslo progresas")}`}
-          aria-valuetext={`${formatKm(forecast.currentKm, locale)} / ${formatKm(goal.targetKm, locale)} km`}/>
-        <p className="goal-caption">{formatKm(forecast.currentKm, locale)} / {formatKm(goal.targetKm, locale)} km · {formatKm(forecast.progressPercent, locale)}%</p>
-        <p className="goal-eta" aria-live="polite">{forecast.estimatedDate
-          ? <><span>{tr("Estimated date", "Numatoma data")}</span><strong>{formatDate(forecast.estimatedDate, false, undefined, locale)}</strong></>
-          : <span>{forecast.status === "achieved" && <Check/>}{status}</span>}</p>
-        <p className="field-hint">{formatKm(forecast.averageKmPerDay, locale)} km/d · {tr("30-day rolling average", "30 dienų slenkantis vidurkis")}</p>
-      </article>;
-    })}</div>}
-    <details className="forecast-explanation"><summary>{tr("How the forecast works", "Kaip skaičiuojama prognozė")}</summary>
-      <p>{tr("Remaining kilometres ÷ average km/day from the last 30 calendar days, including today and zero-distance days. Sparse odometer intervals are spread evenly across their days; this is an estimate, not measured daily activity. Future-dated records are excluded. An inactive vehicle retains its progress but has no arrival date. There is no prediction without recent distance.", "Likę kilometrai ÷ paskutinių 30 kalendorinių dienų vidurkis, įskaitant šiandieną ir dienas be ridos. Reti odometro intervalai tolygiai paskirstomi jų dienoms; tai įvertis, ne išmatuota kiekvienos dienos veikla. Ateities įrašai neįtraukiami. Neaktyvios priemonės progresas išlieka, bet data neprognozuojama. Be naujausios ridos prognozės nėra.")}</p>
-    </details>
+function goalLabel(goal:Goal,state:State,tr:(en:string,lt:string)=>string){
+  const scope=goal.wheelId?state.wheel.find(w=>w.id===goal.wheelId)?.name??tr("Unavailable vehicle","Nepasiekiama priemonė"):tr("all vehicles","visos priemonės");
+  const period=goal.period==="week"?tr("this week","ši savaitė"):goal.period==="month"?tr("this month","šis mėnuo"):goal.period==="year"?tr("this year","šie metai"):goal.period==="custom"?formatDate(goal.startDate??"")+" – "+formatDate(goal.endDate??""):tr("all time","visas laikas");
+  return (goal.name?.trim()||tr("Distance goal","Ridos tikslas"))+" ("+scope+", "+period+")";
+}
+export function visibleGoals(state:State){return state.goal.some(g=>g.id===defaultEarthGoal.id)?state.goal:[defaultEarthGoal,...state.goal];}
+export function GoalForecasts({state,actions}:{state:State;actions?:ViewActions}){
+  const {tr,locale,language}=useI18n();
+  const [editing,setEditing]=useState<Goal|null>(null),[parents,setParents]=useState<string[]>([]),[busy,setBusy]=useState(false);
+  const goals=visibleGoals(state),selected=goals.some(g=>g.id===actions?.selectedGoal)?actions!.selectedGoal!:defaultEarthGoal.id;
+  const open=(goal?:Goal)=>{const next:Goal=goal??{id:uuid(),name:"",targetKm:10000,wheelId:null,period:"all",createdAt:new Date().toISOString()};setEditing({...next});setParents((state.heads.get(entityKey("goal",next.id))??[]).map(r=>r.operationId));};
+  async function save(event:FormEvent){event.preventDefault();if(!editing||!actions?.saveGoal)return;setBusy(true);try{await actions.saveGoal(editing,parents);setEditing(null);}catch(error){toast.error(error instanceof Error?error.message:"Could not save goal.");}finally{setBusy(false);}}
+  return <section className="goal-section panel"><div className="chart-heading"><div><p className="eyebrow">{tr("NEXT MILESTONES","KITI TIKSLAI")}</p><h2><Target/>{tr("Distance goals","Ridos tikslai")}</h2></div><Button disabled={!actions} onClick={()=>open()}><Plus/>{tr("Add goal","Pridėti tikslą")}</Button></div>
+    <Field label={tr("Show in the global progress bar","Rodyti bendroje progreso juostoje")}><Pick label={tr("Global progress goal","Bendros juostos tikslas")} value={selected} onChange={value=>actions?.selectGoal?.(value)} options={goals.map(g=>({value:g.id,label:goalLabel(g,state,tr)}))}/></Field>
+    <div className="goal-grid">{goals.map(goal=>{const f=forecastGoal(state,goal),label=goalLabel(goal,state,tr),window=goalWindow(goal);return <article className="goal-card" key={goal.id}><div className="section-heading"><strong>{label}</strong><Button variant="ghost" size="icon" disabled={!actions} onClick={()=>open(goal)} aria-label={tr("Edit goal","Redaguoti tikslą")+": "+label}><Pencil/></Button></div>
+      {goal.wheelId&&state.wheel.find(w=>w.id===goal.wheelId)&&<VehicleStatusBadge wheel={state.wheel.find(w=>w.id===goal.wheelId)!} state={state}/>}<div className="goal-distance"><strong>{formatKm(goal.targetKm,locale)}</strong><span>km</span></div>
+      <Progress value={Math.min(100,f.progressPercent)} getValueLabel={()=>new Intl.NumberFormat(locale,{maximumFractionDigits:2}).format(f.progressPercent)+"%"} aria-label={label} aria-valuetext={new Intl.NumberFormat(locale,{maximumFractionDigits:2}).format(f.progressPercent)+"%"}/><p>{formatKm(f.currentKm,locale)} / {formatKm(goal.targetKm,locale)} km · {formatKm(f.progressPercent,locale)}%</p>
+      <p className="goal-eta">{f.status==="achieved"?tr("Goal reached","Tikslas pasiektas"):f.estimatedDate?tr("Estimated date","Numatoma data")+": "+formatDate(f.estimatedDate,false,undefined,locale):f.status==="inactive"?tr("Forecast paused · vehicle inactive","Prognozė sustabdyta · priemonė neaktyvi"):f.status==="invalid_history"?tr("Check incomplete records","Patikrink nepilnus įrašus"):tr("Not enough recent activity for a forecast","Prognozei nepakanka naujausios veiklos")}</p>
+      {f.estimatedDate&&f.estimatedDate>window.end&&<p className="inline-warning">{tr("At this pace, the goal would be reached after this period ends.","Tokiu tempu tikslas būtų pasiektas pasibaigus pasirinktam laikotarpiui.")}</p>}
+      <p className="field-hint">{formatKm(f.averageKmPerDay,locale)} km/d · {tr("30-day rolling average","30 dienų slenkantis vidurkis")}</p>
+    </article>;})}</div>
+    <details className="forecast-explanation"><summary>{tr("How the forecast works","Kaip skaičiuojama prognozė")}</summary><p>{tr("Progress counts records within the selected period. Forecasts use the last 30 calendar days, including zero-distance days. Sparse odometer intervals are spread evenly for this estimate. Week, month and year follow the current calendar period.","Progresas skaičiuojamas pagal pasirinkto laikotarpio įrašus. Prognozei naudojamos paskutinės 30 kalendorinių dienų, įskaitant dienas be ridos. Reti odometro intervalai įverčiui paskirstomi tolygiai. Savaitė, mėnuo ir metai reiškia einamąjį kalendorinį laikotarpį.")}</p></details>
+    <Dialog open={!!editing} onOpenChange={open=>{if(!open&&!busy)setEditing(null);}}><DialogContent className="editor-dialog"><DialogHeader><DialogTitle>{tr("Edit distance goal","Redaguoti ridos tikslą")}</DialogTitle><DialogDescription>{tr("Choose a name, scope and period. Save applies your changes.","Pasirink pavadinimą, priemones ir laikotarpį. Pakeitimus pritaikys Išsaugoti.")}</DialogDescription></DialogHeader>{editing&&<form onSubmit={event=>void save(event)} className="entity-form">
+      <Field label={tr("Name (optional)","Pavadinimas (neprivalomas)")}><Input maxLength={160} value={editing.name??""} onChange={e=>setEditing({...editing,name:e.target.value})}/></Field>
+      <Field label={tr("Goal scope","Tikslo apimtis")}><Pick label={tr("Goal scope","Tikslo apimtis")} value={editing.wheelId??"all"} onChange={value=>setEditing({...editing,wheelId:value==="all"?null:value})} options={[{value:"all",label:tr("All vehicles","Visos priemonės")},...vehicleSelectOptions(state,language).filter(o=>!state.wheel.find(w=>w.id===o.value)?.archived||o.value===editing.wheelId)]}/></Field>
+      <Field label={tr("Target distance, km","Tikslinė rida, km")}><Input required type="number" min="0.001" step="any" value={editing.targetKm||""} onChange={e=>setEditing({...editing,targetKm:Number(e.target.value)})}/></Field>
+      <Field label={tr("Period","Laikotarpis")}><Pick label={tr("Period","Laikotarpis")} value={editing.period??"all"} onChange={value=>setEditing({...editing,period:value as Goal["period"]})} options={[{value:"week",label:tr("This week","Ši savaitė")},{value:"month",label:tr("This month","Šis mėnuo")},{value:"year",label:tr("This year","Šie metai")},{value:"all",label:tr("All time","Visas laikas")},{value:"custom",label:tr("Specify","Pasirinkti")}]} /></Field>
+      {editing.period==="custom"&&<div className="form-grid"><Field label={tr("Start date","Pradžios data")}><DateInput aria-label={tr("Start date","Pradžios data")} required value={editing.startDate??""} onValueChange={value=>setEditing({...editing,startDate:value})}/></Field><Field label={tr("End date","Pabaigos data")}><DateInput aria-label={tr("End date","Pabaigos data")} required min={editing.startDate} value={editing.endDate??""} onValueChange={value=>setEditing({...editing,endDate:value})}/></Field></div>}
+      <DialogFooter>{state.goal.some(g=>g.id===editing.id)&&editing.id!==defaultEarthGoal.id&&<Button type="button" variant="destructive" disabled={busy} onClick={()=>{actions?.askDelete("goal",editing);setEditing(null);}}><Trash2/>{tr("Delete","Pašalinti")}</Button>}<Button type="button" variant="outline" disabled={busy} onClick={()=>setEditing(null)}>{tr("Cancel","Atšaukti")}</Button><Button type="submit" disabled={busy}>{tr("Save","Išsaugoti")}</Button></DialogFooter>
+    </form>}</DialogContent></Dialog>
   </section>;
 }
-
-export function EarthProgress({state}: {state: State}) {
-  const {tr, locale} = useI18n(), progress = earthProgress(state);
-  const percent = new Intl.NumberFormat(locale, {maximumFractionDigits: 2}).format(progress.percent);
-  return <section className="earth-progress" aria-label={tr("Around the Earth", "Aplink Žemę")}>
-    <div><span><Globe2/>{tr("Around the Earth", "Aplink Žemę")}</span><span>{formatKm(progress.totalKm, locale)} / {formatKm(EARTH_EQUATOR_KM, locale)} km <strong>{percent}%</strong></span></div>
-    <Progress value={progress.barPercent} aria-label={tr("All-time distance as a share of the equator", "Visa rida kaip pusiaujo ilgio dalis")} aria-valuetext={`${percent}%`}/>
-  </section>;
+export function EarthProgress({state,goalId}:{state:State;goalId?:string}){
+  const {tr,locale}=useI18n(),goal=visibleGoals(state).find(g=>g.id===(goalId??defaultEarthGoal.id))??defaultEarthGoal,f=forecastGoal(state,goal),label=goalLabel(goal,state,tr);
+  return <section className="earth-progress" aria-label={label}><div><span><Globe2/>{label} — {formatKm(goal.targetKm,locale)} km</span><span>{formatKm(f.currentKm,locale)} / {formatKm(goal.targetKm,locale)} km <strong>{new Intl.NumberFormat(locale,{maximumFractionDigits:2}).format(f.progressPercent)}%</strong></span></div><Progress value={Math.min(100,f.progressPercent)} getValueLabel={()=>new Intl.NumberFormat(locale,{maximumFractionDigits:2}).format(f.progressPercent)+"%"} aria-label={label}/></section>;
 }

@@ -1,5 +1,5 @@
 import { LOCAL_DATABASE, LOCAL_CHANNEL } from "./paths";
-import { canonical, makeOperation, parseOperation, project, validateRecordTarget, type Attachment, type Entity, type Kind, type Operation, type Reading, type Ride, type State, type Wheel } from "./domain";
+import { canonical, makeOperation, parseOperation, project, validateArchivedAssociations, validateRecordTarget, type Attachment, type Entity, type Kind, type Operation, type Reading, type Ride, type State, type Wheel } from "./domain";
 
 export type Profile = { namespace: string; email: string; name: string; permissionId: string };
 export type StoredOperation = { key: string; namespace: string; operation: Operation; uploaded: boolean; fileId?: string };
@@ -49,14 +49,17 @@ export async function storeOperation(namespace: string, operation: Operation, bl
   try {
     // Recheck status inside the write transaction, including changes made in
     // another tab after the form opened. Import/sync use mergeOperations instead.
-    if (operation.changes.some(change => change.value && (change.kind === "ride" || change.kind === "reading"))) {
+    if (operation.changes.some(change => change.value)) {
       const rows = await request<StoredOperation[]>(tx.objectStore("operations").index("namespace").getAll(namespace));
       const history = rows.map(row => parseOperation(row.operation)), current = project(history);
       const wheels = new Map(current.wheel.map(wheel => [wheel.id, wheel]));
       for (const change of operation.changes) if (change.kind === "wheel") {
         if (change.value) wheels.set(change.entityId, change.value as Wheel); else wheels.delete(change.entityId);
       }
-      const validationState = {...current, wheel: [...wheels.values()]};
+      const gear=new Map(current.gear.map(item=>[item.id,item])),trips=new Map(current.trip.map(item=>[item.id,item]));
+      for(const c of operation.changes){if(c.kind==="gear"&&c.value)gear.set(c.entityId,c.value as State["gear"][number]);if(c.kind==="trip"&&c.value)trips.set(c.entityId,c.value as State["trip"][number]);}
+      const validationState = {...current,wheel:[...wheels.values()],gear:[...gear.values()],trip:[...trips.values()]};
+      for(const change of operation.changes) if(change.value&&!change.value.archived) validateArchivedAssociations(validationState,change.kind,change.value,current);
       for (const change of operation.changes) if (change.value && (change.kind === "ride" || change.kind === "reading")) {
         const record = change.value as Reading | Ride;
         // Undo and conflict recovery may restore a previously deleted record.

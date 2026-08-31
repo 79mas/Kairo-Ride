@@ -28,7 +28,7 @@ export function MaintenanceForm({editor,state,busy,onSave,onCancel}:EntityFormPr
   const currentOdometer=maintenanceOdometer(state,draft.targetKind,draft.targetId);
   const selectedWheel=draft.targetKind==="wheel"?state.wheel.find(wheel=>wheel.id===draft.targetId):undefined;
   const lastReading=selectedWheel?wheelStats(selectedWheel,state.reading).lastAt:undefined;
-  const targetOptions=draft.targetKind==="wheel"?vehicleSelectOptions(state,language):state.gear.map(item=>({value:item.id,label:item.name}));
+  const targetOptions=draft.targetKind==="wheel"?vehicleSelectOptions(state,language).filter(item=>!state.wheel.find(w=>w.id===item.value)?.archived||item.value===original?.targetId):state.gear.filter(item=>!item.archived||item.id===original?.targetId).map(item=>({value:item.id,label:item.name}));
   const groups=[{id:"inspection",label:tr("Inspections and checks","Apžiūros ir patikros")},{id:"condition",label:tr("Condition / component-based work","Darbai pagal būklę ar komponentą")},{id:"other",label:tr("Insurance and custom tasks","Draudimas ir kitos užduotys")}];
   const update=<K extends keyof MaintenanceDraft>(key:K,value:MaintenanceDraft[K])=>setDraft(current=>({...current,[key]:value}));
   function selectTemplate(value:string){setDraft(current=>selectMaintenanceTemplate(current,value,state,entryDay,language));}

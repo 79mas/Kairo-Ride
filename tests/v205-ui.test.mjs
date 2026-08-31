@@ -29,7 +29,8 @@ test("Garage renders six labelled, editable statuses without hiding archive vehi
   const state=fixture(wheels);
   const html=renderToStaticMarkup(React.createElement(Tabs,{value:"wheels"},React.createElement(MainViews,{state,actions:{openEditor:noop,openRide:noop,askDelete:noop,setDetail:noop},setView:noop,openStorage:noop})));
   for(const w of wheels){
-    assert.ok(html.includes(`aria-label="Change status for: ${w.name}"`),`Editable badge for ${w.name}`);
+    assert.ok(html.includes(w.name),`Expandable vehicle card for ${w.name}`);
+    assert.ok(html.includes(`aria-label="Edit vehicle"`));
     assert.ok(html.includes(`vehicle-status-${w.status}`));
     assert.ok(html.includes(d.wheelStatusLabels[w.status]));
   }

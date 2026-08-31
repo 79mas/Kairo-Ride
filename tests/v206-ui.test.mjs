@@ -98,21 +98,22 @@ test("Garage has exactly one edit pencil per vehicle and its status remains edit
   const state=fixture([change("wheel",wheel),change("wheel",{...wheel,id:"other",name:"Other",status:"sold"})]);
   const html=view("wheels",state);
   assert.equal((html.match(/lucide-pencil/g)??[]).length,2);
-  assert.equal((html.match(/aria-label="Change status for:/g)??[]).length,2);
+  assert.equal((html.match(/aria-label="Edit vehicle"/g)??[]).length,2);
 });
 test("Analytics offers custom total/vehicle goals even before the first distance record",()=>{
   const html=render(React.createElement(AnalyticsView,{state:fixture(),actions}));
-  assert.match(html,/Distance goals/);assert.match(html,/aria-label="Goal scope"/);
-  assert.match(input(html,"Target distance"),/required/);assert.match(html,/Add goal/);
+  assert.match(html,/Distance goals/);assert.match(html,/aria-label="Global progress goal"/);
+  assert.match(html,/Add goal/);assert.match(html,/Around the Earth/);
   assert.match(html,/30 calendar days/);
-  assert.match(html,/baseline/);
+  assert.match(html,/selected period/);
 });
 test("goal card renders selected scope, target, progress and the inactive forecast explanation",()=>{
   const state=fixture([change("wheel",{...wheel,status:"in_repair"}),change("reading",record),change("goal",{id:"goal",wheelId:wheel.id,targetKm:10000,createdAt:record.at})]);
   const html=render(React.createElement(GoalForecasts,{state,actions}));
   assert.match(html,/Lynx-S/);assert.match(html,/10,000/);assert.match(html,/vehicle-status-in_repair/);
   assert.match(html,/Forecast paused/);assert.match(html,/role="progressbar"/);
-  assert.match(html,/aria-label="Delete goal: 10,000 km · Lynx-S"/);
+  assert.match(html,/aria-label="Edit goal: Distance goal \(Lynx-S, all time\)"/);
+  assert.doesNotMatch(html,/aria-label="Delete goal/);
 });
 test("Earth footer progress exposes exact totals and percentages above one lap accessibly",()=>{
   const state=fixture([change("wheel",wheel),change("reading",{...record,odometerKm:80250})]);
@@ -141,4 +142,57 @@ test("save wiring remembers a vehicle only after committing; settings expose dat
   assert.match(settings,/Dates & calendar/);assert.match(settings,/Date format/);assert.match(settings,/Week starts on/);
   const date=await readFile(new URL("../components/kairo/date-input.tsx",import.meta.url),"utf8");
   assert.match(date,/setCustomValidity/);assert.match(date,/else if \(key && inRange\(key\)\) onValueChange\(key\)/);
+});
+
+test("v207 Rides, Trips, Garage and Gear have no direct Delete controls",()=>{
+ const trip={id:"trip207",name:"Weekend",startDate:"2026-08-29",endDate:"2026-08-30",notes:""};
+ const state=fixture([change("wheel",wheel),change("reading",record),change("ride",{...ride,tripId:trip.id}),change("trip",trip),change("gear",gear)]);
+ for(const name of ["rides","trips","wheels","gear"]){
+   const html=view(name,state);assert.doesNotMatch(html,/lucide-trash|aria-label="Delete/);
+ }
+ assert.match(view("trips",state),/trip-ledger-table/);
+ assert.match(view("rides",state),/Filter rides by vehicle/);
+ assert.match(view("trips",state),/Filter trips by vehicle/);
+ assert.match(view("wheels",state),/<details[^>]*vehicle-expandable/);
+});
+test("v207 archived vehicles leave Fleet but their records still count",()=>{
+ const state=fixture([change("wheel",{...wheel,archived:true}),change("reading",record)]);
+ const html=view("overview",state);
+ assert.doesNotMatch(html,/class="fleet-name">Lynx-S/);
+ assert.match(view("rides",state),/Archived/);
+});
+test("v207 Hero keeps all three averages and adds Last ride and Last trip",async()=>{
+ const {DashboardHero}=await vite.ssrLoadModule("/components/kairo/views.tsx");
+ const state=fixture([change("wheel",wheel),change("reading",record),change("ride",ride)]);
+ const html=render(React.createElement(DashboardHero,{state}));
+ const source=await readFile(new URL("../components/kairo/views.tsx",import.meta.url),"utf8");
+ for(const value of ["Last ride","Last trip","km/d","km/w","km/m"])assert.ok(source.includes(value));
+ assert.match(html,/Last ride/);
+ assert.match(html,/class="hero-primary"/);assert.match(html,/<strong>300<\/strong>/);
+});
+test("v207 Maintenance calendar exposes seven weekday headings and next mileage task",async()=>{
+ const {MaintenanceCalendar}=await vite.ssrLoadModule("/components/kairo/overview-extras.tsx");
+ const task={id:"care",title:"Tire pressure",category:"custom",targetKind:"wheel",targetId:wheel.id,dueDate:"2026-08-31",dueOdometerKm:500,repeatKm:100,repeatMonths:null,remindDaysBefore:0,completedAt:null,notes:""};
+ const state=fixture([change("wheel",wheel),change("reading",record),change("maintenance",task)]);
+ const html=render(React.createElement(MaintenanceCalendar,{state,actions}));
+ assert.equal((html.match(/class="weekday"/g)??[]).length,7);
+ assert.match(html,/Next mileage-based task/);assert.match(html,/Remaining: 100 km/);assert.match(html,/Tire pressure/);
+});
+test("v207 Settings groups and deferred Apply are wired explicitly",async()=>{
+ const source=await readFile(new URL("../components/kairo/storage-panel.tsx",import.meta.url),"utf8");
+ for(const label of ["Appearance & regional settings","Synchronization","Import / Export","Information","Apply","Cancel"])assert.ok(source.includes(label));
+ assert.match(source,/showCloseButton=\{false\}/);assert.match(source,/function apply\(/);
+ assert.match(source,/checked=\{draft.auto\}/);assert.match(source,/Discard unapplied settings/);
+});
+test("v207 all Gear sorting directions and subtle chart focus are present",async()=>{
+ const source=await readFile(new URL("../components/kairo/views.tsx",import.meta.url),"utf8");
+ for(const key of ["name","category","status"])assert.ok(source.includes('sortGear("'+key+'")'));
+ assert.match(source,/setGearAsc\(!gearAsc\)/);
+ const css=await readFile(new URL("../app/globals.css",import.meta.url),"utf8");
+ assert.match(css,/\.recharts-wrapper \*:focus \{outline:none!important\}/);
+ assert.match(css,/\.earth-progress \{max-width:none/);
+});
+test("v207 global goal bar includes name, scope, period and target",()=>{
+ const html=render(React.createElement(EarthProgress,{state:fixture()}));
+ assert.match(html,/Around the Earth \(all vehicles, all time\) — 40,075 km/);
 });

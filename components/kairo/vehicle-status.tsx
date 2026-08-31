@@ -6,6 +6,7 @@ import {useI18n} from "@/lib/kairo/i18n";
 
 export function VehicleStatusBadge({wheel, state}: {wheel: Wheel; state: State}) {
   const {language} = useI18n();
+  if(wheel.archived)return <span className="vehicle-status vehicle-status-critical"><i aria-hidden="true"/>{language==="lt"?"Archyvuota":"Archived"}</span>;
   const status = effectiveWheelStatus(wheel, state);
   return <span className={`vehicle-status vehicle-status-${status}`}><i aria-hidden="true"/>{language === "lt" ? ltWheelStatusLabels[status] : wheelStatusLabels[status]}</span>;
 }

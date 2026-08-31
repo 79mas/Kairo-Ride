@@ -1,5 +1,5 @@
 import {canRecordWithWheel, roundKm, type Goal, type State} from "./domain";
-import {calendarDayNumber, shiftDateKey} from "./calendar";
+import {calendarDayNumber, shiftDateKey, readCalendarPreferences} from "./calendar";
 import {dateKey, metricDistance, rideEntries} from "./stats";
 
 export const EARTH_EQUATOR_KM = 40_075;
@@ -13,9 +13,10 @@ export type GoalForecast = {
  * An odometer interval is apportioned evenly over (previous date, record date].
  * A same-day interval counts once on that day. This estimates sparse journals;
  * it never extrapolates unrecorded riding after the last record. */
-export function forecastGoal(state: State, goal: Pick<Goal, "targetKm" | "wheelId">, now = new Date()): GoalForecast {
+export function forecastGoal(state: State, goal: Pick<Goal, "targetKm" | "wheelId"> & Partial<Goal>, now = new Date()): GoalForecast {
   const toDate = dateKey(now), fromDate = shiftDateKey(toDate, -29);
   const lastDay = calendarDayNumber(toDate), firstDay = calendarDayNumber(fromDate);
+  const window = goalWindow(goal,now);
   const entries = rideEntries(state).filter(entry => goal.wheelId === null || entry.wheelId === goal.wheelId);
   let current = 0, recent = 0, invalid = false;
   for (const entry of entries) {
@@ -23,7 +24,7 @@ export function forecastGoal(state: State, goal: Pick<Goal, "targetKm" | "wheelI
     if (day > toDate) continue; // A future-dated record is not already-achieved mileage.
     if (entry.distanceKm === null || entry.warning || entry.intervalDays === null) {invalid = true; continue;}
     const distance = Math.max(0, entry.distanceKm);
-    current += distance;
+    if(day>=window.start&&day<=window.end)current += distance;
     const end = calendarDayNumber(day);
     if (entry.reading) {
       const days = entry.intervalDays;
@@ -56,4 +57,17 @@ export function earthProgress(state: State) {
   const totalKm = metricDistance(state, "all");
   const percent = totalKm / EARTH_EQUATOR_KM * 100;
   return {totalKm, percent, barPercent: Math.min(100, Math.max(0, percent))};
+}
+
+export const defaultEarthGoal:Goal={id:"around-the-earth",name:"Around the Earth",wheelId:null,targetKm:EARTH_EQUATOR_KM,period:"all",createdAt:"2026-01-01T00:00:00Z"};
+export function goalWindow(goal:Partial<Goal>,now=new Date()){
+  const day=dateKey(now),year=now.getFullYear(),month=now.getMonth();
+  if(goal.period==="custom")return {start:goal.startDate??day,end:goal.endDate??day};
+  if(goal.period==="week"){
+    const start=shiftDateKey(day,-((now.getDay()-readCalendarPreferences().weekStartsOn+7)%7));
+    return {start,end:shiftDateKey(start,6)};
+  }
+  if(goal.period==="month")return {start:dateKey(new Date(year,month,1,12)),end:dateKey(new Date(year,month+1,0,12))};
+  if(goal.period==="year")return {start:`${year}-01-01`,end:`${year}-12-31`};
+  return {start:"0000-01-01",end:"9999-12-31"};
 }

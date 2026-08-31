@@ -35,6 +35,7 @@ export function orderedVehicles(wheels: Wheel[]): Wheel[] {
 }
 export function vehicleChoiceLabel(wheel: Wheel, state: State, language = "en"): string {
   const status = effectiveWheelStatus(wheel, state);
+  if(wheel.archived)return `${wheel.name} · ${language==="lt"?"Archyvuota":"Archived"}`;
   return `${wheel.name} · ${language === "lt" ? ltWheelStatusLabels[status] : wheelStatusLabels[status]}`;
 }
 export function vehicleSelectOptions(state: State, language = "en") {

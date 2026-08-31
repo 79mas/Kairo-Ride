@@ -153,7 +153,7 @@ test("journeys count calendar days across DST and do not count unknown distances
 test("local validation rejects an impossible odometer and protects referenced wheels",()=>{
   const s=d.project([d.makeOperation(d.project([]),"a",[change("wheel",wheel),change("reading",reading("r","02",150))])]);
   assert.throws(()=>d.validateEdit(s,"reading",reading("new","01",200)),/odometer sequence/);
-  assert.throws(()=>d.validateDelete(s,"wheel",wheel.id),/linked records/);
+  assert.doesNotThrow(()=>d.validateDelete(s,"wheel",wheel.id)); // v207 archives while retaining referenced history.
 });
 test("unsupported schemas and invalid dates reject before import",()=>{
   assert.throws(()=>d.parseBackup({format:"kairo-ride",schemaVersion:2,operations:[]}));
@@ -338,7 +338,7 @@ test("complete Drive protocol stores a trip original and reconstructs an indepen
   assert.deepEqual(copy.state.gear,[gear]);
   const originalCount=remote.files.size,writes=()=>remote.requests.filter(request=>request.method!=="GET").length,before=writes();
   await client.sync(ns,()=>{});assert.equal(remote.files.size,originalCount);assert.equal(writes(),before,"unchanged polling must not rewrite the database snapshot");
-  const requestCount=remote.requests.length;await client.sync(ns,()=>{});assert.equal(remote.requests.length-requestCount,3,"steady no-change poll checks account, root and history, not every attachment folder");
+  const requestCount=remote.requests.length;await client.sync(ns,()=>{});assert.equal(remote.requests.length-requestCount,5,"steady poll also checks editable database controls, not every attachment folder");
 });
 
 test("a sync with no local changes pulls another device's edit and preserves a later conflict",async()=>{
@@ -381,5 +381,23 @@ test("2.0.6 goals and unnamed rides sync through Drive history, snapshots and or
   assert.equal(new TextDecoder().decode(remote.files.get(state.attachment[0].driveId).content),"untouched GPX");
   const snapshot=[...remote.files.values()].find(file=>file.name==="database.json");
   assert.deepEqual(d.project(d.parseBackup(snapshot.content)).goal,[goal]);
-  assert.ok([...remote.files.values()].some(file=>file.name.includes("_Ride_")),"Unnamed ride folders have a usable fallback name");
+  assert.ok([...remote.files.values()].some(file=>file.name.includes("_Imported ride files_")),"Legacy ride files migrate into a named trip folder");
+});
+
+test("v207 Drive database marker restoration survives a stale device and fresh replica",async()=>{
+  const permissionId="990000000207",ns=`google:${permissionId}`,remote=memoryDrive(permissionId),client=new DriveClient("test-token",Date.now()+3600000,remote.fetcher);
+  await db.commit(ns,"wheel",wheel,wheel.id);await client.sync(ns,()=>{});
+  await db.commit(ns,"wheel",{...wheel,archived:true},wheel.id);await client.sync(ns,()=>{});
+  const stale=(await db.loadWorkspace(ns)).operations;
+  const snapshot=[...remote.files.values()].find(f=>f.name==="database.json");
+  assert.equal(snapshot.content.deletions.length,1);
+  snapshot.content.deletions=[];
+  await client.sync(ns,()=>{});
+  assert.equal((await db.loadWorkspace(ns)).state.wheel[0].archived,false);
+  await db.mergeOperations(ns,stale,true);
+  await client.sync(ns,()=>{});
+  assert.equal((await db.loadWorkspace(ns)).state.wheel[0].archived,false);
+  const replica="v207-fresh-"+crypto.randomUUID();await client.pull(replica,()=>{});
+  assert.equal((await db.loadWorkspace(replica)).state.wheel[0].archived,false);
+  assert.equal((await db.loadWorkspace(replica)).state.conflicts.length,0);
 });

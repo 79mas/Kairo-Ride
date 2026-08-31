@@ -197,7 +197,7 @@ export type MaintenanceDraft={
 export function createMaintenanceDraft(state:State,options:{item?:Maintenance;templateId?:string;targetKind?:Maintenance["targetKind"];targetId?:string;day?:string;language?:Language}={}):MaintenanceDraft{
   const {item,language="en",day=today()}=options;
   const targetKind=item?.targetKind??options.targetKind??(state.wheel.length?"wheel":"gear");
-  const targetId=item?.targetId??options.targetId??(targetKind==="wheel"?state.wheel[0]?.id:state.gear[0]?.id)??"";
+  const targetId=item?.targetId??options.targetId??(targetKind==="wheel"?state.wheel.find(w=>!w.archived)?.id:state.gear.find(g=>!g.archived)?.id)??"";
   const template=maintenanceTemplate(item?.templateId??item?.category??options.templateId??(targetKind==="wheel"?"tire_pressure":"custom"));
   const schedule=item??suggestedMaintenanceSchedule(template.id,state,targetKind,targetId,day);
   return {
@@ -211,7 +211,7 @@ export function createMaintenanceDraft(state:State,options:{item?:Maintenance;te
 export function selectMaintenanceTemplate(draft:MaintenanceDraft,templateId:string,state:State,day=today(),language:Language="en"):MaintenanceDraft{
   const template=maintenanceTemplate(templateId);
   const targetKind=!template.gear?"wheel":draft.targetKind;
-  const targetId=targetKind===draft.targetKind?draft.targetId:(state.wheel[0]?.id??"");
+  const targetId=targetKind===draft.targetKind?draft.targetId:(state.wheel.find(w=>!w.archived)?.id??"");
   return {...createMaintenanceDraft(state,{templateId:template.id,targetKind,targetId,day,language}),notes:draft.notes,completed:draft.completed};
 }
 export function retargetMaintenanceDraft(draft:MaintenanceDraft,state:State,targetKind:Maintenance["targetKind"],targetId:string):MaintenanceDraft{

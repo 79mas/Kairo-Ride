@@ -1,3 +1,4 @@
+import {databaseRestorations, migrateRideFiles} from "./archive";
 import { appPath } from "./paths";
 import { attachmentSchema, backup, canonical, parseOperation, type Attachment, type Operation, type State } from "./domain";
 import { commit, loadWorkspace, mergeOperations, metaGet, metaSet, patchBlob, patchOperation, type Profile, type StoredBlob, type StoredOperation } from "./storage";
@@ -213,12 +214,20 @@ export class DriveClient {
       if(profile.namespace!==namespace)throw new Error("The account changed. Changes will not be sent to another account.");
       const root=await this.root();await metaSet(`${namespace}:rootId`,root.id);
       await this.pull(namespace,onProgress);
+      for(const snapshot of await this.list(property("kind","snapshot"))) {
+        const data=await limitedJson(await this.fetch(`${API}/files/${snapshot.id}?alt=media`),50*1024*1024);
+        const restores=databaseRestorations(data);
+        if(restores.length)await mergeOperations(namespace,restores,false);
+      }
+      const migration=await migrateRideFiles((await loadWorkspace(namespace)).operations,"migration-v207");
+      if(migration.length)await mergeOperations(namespace,migration,false);
       let workspace=await loadWorkspace(namespace);
       if(workspace.state.integrity.length)throw new Error("Part of the data history is missing. Sync stopped to prevent incorrect changes.");
       const reconciledFingerprint=await historyFingerprint(root.id,workspace.operations);
       const reconcileFolders=await metaGet<string>(`${namespace}:reconciledHistory`)!==reconciledFingerprint;
       // Upload raw originals before publishing metadata that claims a Drive ID.
       for(const attachment of workspace.state.attachment){
+        if(attachment.archived)continue;
         const conflicted=workspace.state.conflicts.some(c=>c.entityId===attachment.id||c.entityId===attachment.ownerId);
         if(conflicted)continue;
         // A no-change poll must not traverse every attachment's folders.
@@ -226,7 +235,15 @@ export class DriveClient {
         const stored=workspace.blobs.find(b=>b.attachmentId===attachment.id);
         if(!attachment.driveId&&!stored)continue; // The originating offline device owns the queued original.
         const folder=await this.ownerFolder(attachment.ownerKind,attachment.ownerId,workspace.state);
-        if(attachment.driveId)continue;
+        if(attachment.driveId){
+          const file=await(await this.fetch(`${API}/files/${attachment.driveId}?fields=id,parents`)).json();
+          if(!file.parents?.includes(folder.id)){
+            const params=new URLSearchParams({addParents:folder.id,fields:"id"});
+            if(file.parents?.length)params.set("removeParents",file.parents.join(","));
+            await this.fetch(`${API}/files/${attachment.driveId}?${params}`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:"{}"});
+          }
+          continue;
+        }
         const driveId=await this.uploadAttachment(namespace,attachment,stored!,folder.id,onProgress);
         this.assertConnected();
         const latest=(await loadWorkspace(namespace)).state.attachment.find(a=>a.id===attachment.id);

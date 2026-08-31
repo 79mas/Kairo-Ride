@@ -5,6 +5,7 @@ export const SCHEMA_VERSION = 1 as const;
 export const KINDS = ["wheel", "reading", "ride", "trip", "gear", "maintenance", "attachment", "goal"] as const;
 export type Kind = typeof KINDS[number];
 const id = z.string().min(1).max(160).regex(/^[a-zA-Z0-9_-]+$/);
+const archived = z.boolean().optional();
 const text = z.string().max(20_000);
 const name = z.string().trim().min(1, "Enter a name.").max(160);
 const km = z.number().finite().min(0).max(1_000_000_000);
@@ -22,7 +23,7 @@ export const wheelStatusLabels: Record<WheelStatus, string> = {
 };
 
 export const wheelSchema = z.object({
-  id, name, baselineKm: km, baselineDate: day,
+  id, archived, name, baselineKm: km, baselineDate: day,
   color: z.string().regex(/^#[0-9a-fA-F]{6}$/), notes: text,
   // Do not inject defaults into immutable history: pre-2.0.5 operations keep
   // their exact representation and missing status is interpreted as Active.
@@ -30,18 +31,19 @@ export const wheelSchema = z.object({
   statusNote: z.string().trim().max(1000).optional(),
 }).strict();
 export const readingSchema = z.object({
-  id, wheelId: id, at: instant, odometerKm: km, notes: text,
+  id, archived, wheelId: id, at: instant, odometerKm: km, notes: text,
   sourceOrder: z.number().int().nonnegative().optional(),
 }).strict();
 export const tripSchema = z.object({
-  id, name, startDate: day, endDate: day, notes: text,
+  id, archived, name, startDate: day, endDate: day, notes: text,
 }).strict().refine(t => t.endDate >= t.startDate, "A trip cannot end before it starts.");
 export const rideSchema = z.object({
-  id, name: z.string().trim().max(160), wheelId: id, tripId: id.nullable(), at: instant,
+  id, archived, name: z.string().trim().max(160), wheelId: id, tripId: id.nullable(), at: instant,
   distanceKm: km.nullable(), notes: text, localDate: day.optional(), timeZone: timeZone.optional(),
 }).strict();
 export const goalSchema = z.object({
-  id, wheelId: id.nullable(), targetKm: km.refine(value => value > 0, "Enter a target greater than zero."), createdAt: instant,
+  id, archived, name: z.string().trim().max(160).optional(), period: z.enum(["week","month","year","all","custom"]).optional(), startDate: day.optional(), endDate: day.optional(),
+  wheelId: id.nullable(), targetKm: km.refine(value => value > 0, "Enter a target greater than zero."), createdAt: instant,
 }).strict();
 export const GEAR_CATEGORIES = ["helmet", "footwear", "protection", "gloves", "clothing", "camera", "intercom", "bag", "charging", "other"] as const;
 export const GEAR_STATUSES = ["active", "spare", "retired"] as const;
@@ -51,7 +53,7 @@ export const gearCategoryLabels: Record<typeof GEAR_CATEGORIES[number], string> 
 };
 export const gearStatusLabels: Record<typeof GEAR_STATUSES[number], string> = { active: "Active", spare: "Spare", retired: "Retired" };
 export const gearSchema = z.object({
-  id, name, category: z.enum(GEAR_CATEGORIES), status: z.enum(GEAR_STATUSES),
+  id, archived, name, category: z.enum(GEAR_CATEGORIES), status: z.enum(GEAR_STATUSES),
   brand: z.string().trim().max(160), model: z.string().trim().max(160), size: z.string().trim().max(60),
   purchasedOn: day.nullable(), usedWithGearIds: z.array(id).max(100).optional(), notes: text,
 }).strict();
@@ -61,7 +63,7 @@ export const maintenanceCategoryLabels: Record<typeof MAINTENANCE_CATEGORIES[num
   battery: "Assess battery health", insurance: "Insurance", custom: "Custom task",
 };
 export const maintenanceSchema = z.object({
-  id, title: name, category: z.enum(MAINTENANCE_CATEGORIES), targetKind: z.enum(["wheel", "gear"]), targetId: id,
+  id, archived, title: name, category: z.enum(MAINTENANCE_CATEGORIES), targetKind: z.enum(["wheel", "gear"]), targetId: id,
   dueDate: day.nullable(), dueOdometerKm: km.nullable(), remindDaysBefore: z.number().int().min(0).max(3650).nullable(),
   repeatKm: km.nullable(), repeatMonths: z.number().int().min(1).max(1200).nullable(), completedAt: instant.nullable(), notes: text,
   // Optional additions: existing history is parsed without injecting new defaults.
@@ -69,7 +71,7 @@ export const maintenanceSchema = z.object({
   repeatDays: z.number().int().min(1).max(36500).nullable().optional(),
 }).strict();
 export const attachmentSchema = z.object({
-  id, ownerKind: z.enum(["ride", "trip"]), ownerId: id,
+  id, archived, ownerKind: z.enum(["ride", "trip"]), ownerId: id,
   name, mimeType: z.string().max(160), size: z.number().int().nonnegative().max(512 * 1024 * 1024),
   addedAt: instant, driveId: z.string().regex(/^[a-zA-Z0-9_-]{8,200}$/).optional(),
 }).strict();
@@ -87,7 +89,7 @@ export const schemas = { wheel: wheelSchema, reading: readingSchema, trip: tripS
 
 export const storedWheelStatus = (wheel: Wheel): WheelStatus => wheel.status ?? "active";
 export function canRecordWithWheel(wheel: Wheel | undefined): boolean {
-  return !!wheel && ["active", "attention", "spare"].includes(storedWheelStatus(wheel));
+  return !!wheel && !wheel.archived && ["active", "attention", "spare"].includes(storedWheelStatus(wheel));
 }
 
 /** Old records stay editable, including adding ride details to a legacy record.
@@ -208,7 +210,7 @@ export function compareReadings(a: Reading, b: Reading) {
 export const roundKm = (n: number) => Math.round((n + Number.EPSILON) * 1000) / 1000;
 export type ReadingInterval = { reading: Reading; from: number; distance: number | null; warning: string | null };
 export function wheelStats(wheel: Wheel, readings: Reading[]) {
-  const ordered = readings.filter(r => r.wheelId === wheel.id).sort(compareReadings);
+  const ordered = readings.filter(r => !r.archived && r.wheelId === wheel.id).sort(compareReadings);
   const times = new Map<string, number>();
   ordered.forEach(r => {const key=String(Date.parse(r.at));times.set(key, (times.get(key) ?? 0) + 1);});
   let previous = wheel.baselineKm;
@@ -232,8 +234,21 @@ export function makeOperation(state: State, deviceId: string, changes: {kind: Ki
   return parseOperation({ version: SCHEMA_VERSION, id: uuid(), deviceId, createdAt: new Date().toISOString(), changes: changes.map(c => ({...c, parents: (state.heads.get(entityKey(c.kind, c.entityId)) ?? []).map(r => r.operationId) })) });
 }
 
+export function validateArchivedAssociations(state:State,kind:Kind,entity:Entity,previousState=state){
+  const previous=previousState[kind].find(old=>old.id===entity.id);
+  if(previous?.archived&&!entity.archived)throw new Error("This item was removed. Restore it through the database before editing.");
+  const isArchived=(target:Kind,id:string)=>state[target].some(item=>item.id===id&&item.archived);
+  if((kind==="ride"||kind==="reading")&&"wheelId" in entity&&entity.wheelId&&isArchived("wheel",entity.wheelId)&&(!previous||!("wheelId" in previous)||previous.wheelId!==entity.wheelId)&&!hasArchivedRecord(state,entity.wheelId,entity.id))throw new Error("This vehicle was removed. New records are disabled.");
+  if(kind==="ride"){const r=entity as Ride,old=previous as Ride|undefined;if(r.tripId&&isArchived("trip",r.tripId)&&old?.tripId!==r.tripId)throw new Error("This trip was removed.");}
+  if(kind==="gear"){const g=entity as Gear,old=previous as Gear|undefined;if(g.usedWithGearIds?.some(id=>isArchived("gear",id)&&!old?.usedWithGearIds?.includes(id)))throw new Error("This gear item was removed.");}
+  if(kind==="maintenance"){const m=entity as Maintenance,old=previous as Maintenance|undefined;if(isArchived(m.targetKind,m.targetId)&&(old?.targetKind!==m.targetKind||old.targetId!==m.targetId))throw new Error("This maintenance target was removed.");}
+  if(kind==="goal"){const g=entity as Goal,old=previous as Goal|undefined;if(g.wheelId&&isArchived("wheel",g.wheelId)&&old?.wheelId!==g.wheelId)throw new Error("This vehicle was removed.");}
+  if(kind==="attachment"){const a=entity as Attachment;if(isArchived(a.ownerKind,a.ownerId))throw new Error("This trip was removed.");}
+}
 export function validateEdit(state: State, kind: Kind, entity: Entity): void {
+  validateArchivedAssociations(state,kind,entity);
   schemas[kind].parse(entity);
+  if (state[kind].some(old=>old.id===entity.id&&old.archived) && !entity.archived) throw new Error("This item was removed. Restore it through the database before editing.");
   if (kind === "reading" || kind === "ride") {
     const record = entity as Reading | Ride;
     validateRecordTarget(state, record);
@@ -246,21 +261,22 @@ export function validateEdit(state: State, kind: Kind, entity: Entity): void {
   }
   if (kind === "ride") {
     const r = entity as Ride;
-    if (r.tripId && !state.trip.some(t => t.id === r.tripId)) throw new Error("Select an existing trip.");
+    if (r.tripId && !state.trip.some(t => t.id === r.tripId && (!t.archived || state.ride.some(old=>old.id===r.id&&old.tripId===r.tripId)))) throw new Error("Select an existing trip.");
   }
   if (kind === "goal") {
     const goal = entity as Goal;
     if (goal.wheelId && !state.wheel.some(wheel => wheel.id === goal.wheelId)) throw new Error("Choose an existing vehicle or All vehicles.");
-    if (state.goal.some(item => item.id !== goal.id && item.wheelId === goal.wheelId && item.targetKm === goal.targetKm)) throw new Error("This distance goal already exists.");
+    if (goal.period === "custom" && (!goal.startDate || !goal.endDate || goal.endDate < goal.startDate)) throw new Error("Choose a valid start and end date.");
+    if (state.goal.some(item => !item.archived && item.id !== goal.id && item.wheelId === goal.wheelId && item.targetKm === goal.targetKm && (item.period ?? "all") === (goal.period ?? "all") && item.startDate === goal.startDate && item.endDate === goal.endDate)) throw new Error("This distance goal already exists.");
   }
   if (kind === "gear") {
     const g = entity as Gear;
     if ((g.usedWithGearIds ?? []).includes(g.id)) throw new Error("A gear item cannot be used with itself.");
-    if ((g.usedWithGearIds ?? []).some(id => !state.gear.some(item => item.id === id))) throw new Error("Select existing gear items in ‘Used with’.");
+    if ((g.usedWithGearIds ?? []).some(id => !state.gear.some(item => item.id === id && (!item.archived || state.gear.some(old=>old.id===g.id&&old.usedWithGearIds?.includes(id)))))) throw new Error("Select existing gear items in ‘Used with’.");
   }
   if (kind === "maintenance") {
     const m = entity as Maintenance;
-    if (!(m.targetKind === "wheel" ? state.wheel : state.gear).some(item => item.id === m.targetId)) throw new Error("Select an existing vehicle or gear item.");
+    if (!(m.targetKind === "wheel" ? state.wheel : state.gear).some(item => item.id === m.targetId && (!item.archived || state.maintenance.some(old=>old.id===m.id&&old.targetId===m.targetId)))) throw new Error("Select an existing vehicle or gear item.");
     if (m.category === "insurance" && !m.dueDate) throw new Error("Insurance requires an expiry date.");
     if (m.targetKind === "gear" && (m.dueOdometerKm !== null || m.repeatKm !== null)) throw new Error("Odometer-based maintenance can only target a vehicle.");
     if (!m.dueDate && m.remindDaysBefore !== null) throw new Error("A date reminder requires a due date.");
@@ -269,7 +285,7 @@ export function validateEdit(state: State, kind: Kind, entity: Entity): void {
   }
   if (kind === "attachment") {
     const a = entity as Attachment;
-    if (!state[a.ownerKind].some(e => e.id === a.ownerId)) throw new Error("Save the trip or ride before attaching files.");
+    if (!state[a.ownerKind].some(e => e.id === a.ownerId && !e.archived)) throw new Error("Save the trip or ride before attaching files.");
   }
   if (kind === "reading" || kind === "wheel") {
     const wheel = kind === "wheel" ? entity as Wheel : state.wheel.find(w => w.id === (entity as Reading).wheelId)!;
@@ -286,10 +302,14 @@ export function validateEdit(state: State, kind: Kind, entity: Entity): void {
 }
 
 export function validateDelete(state: State, kind: Kind, entityId: string) {
-  if (kind === "wheel" && ([...state.reading, ...state.ride].some(r => r.wheelId === entityId) || state.maintenance.some(m => m.targetKind === "wheel" && m.targetId === entityId) || state.goal.some(goal => goal.wheelId === entityId))) throw new Error("This vehicle has linked records, maintenance tasks or goals. They will not be deleted automatically.");
-  if (kind === "trip" && state.ride.some(r => r.tripId === entityId)) throw new Error("Unlink the trip's rides or assign them to another trip first.");
-  if ((kind === "ride" || kind === "trip") && state.attachment.some(a => a.ownerKind === kind && a.ownerId === entityId)) throw new Error("Remove this record's attachment links first. The originals will remain in Drive.");
-  if (kind === "gear" && (state.gear.some(g => (g.usedWithGearIds ?? []).includes(entityId)) || state.maintenance.some(m => m.targetKind === "gear" && m.targetId === entityId))) throw new Error("This gear item is referenced by another item or maintenance task. Remove those links first.");
+  if (!state[kind].some(item => item.id === entityId)) throw new Error("Record no longer available.");
+}
+
+/** Reference entities remain available to historical calculations and labels. */
+export function activeState(state: State): State {
+  return {...state, reading: state.reading.filter(x=>!x.archived), ride: state.ride.filter(x=>!x.archived),
+    maintenance: state.maintenance.filter(x=>!x.archived), attachment: state.attachment.filter(x=>!x.archived),
+    goal: state.goal.filter(x=>!x.archived)};
 }
 
 export function tripStats(trip: Trip, rides: Ride[], attachments: Attachment[]) {
@@ -302,7 +322,9 @@ export function tripStats(trip: Trip, rides: Ride[], attachments: Attachment[]) 
 }
 
 export function backup(operations: Operation[]) {
-  return { format: "kairo-ride", schemaVersion: SCHEMA_VERSION, exportedAt: new Date().toISOString(), operations };
+  const state = project(operations);
+  const deletions = KINDS.flatMap(kind => state[kind].filter(entity=>entity.archived).map(entity=>({kind, entityId:entity.id, deleted:true})));
+  return { format: "kairo-ride", schemaVersion: SCHEMA_VERSION, exportedAt: new Date().toISOString(), operations, deletions };
 }
 export function parseBackup(value: unknown): Operation[] {
   const data = z.object({format: z.literal("kairo-ride"), schemaVersion: z.literal(1), exportedAt: instant.optional(), operations: z.array(z.unknown()).max(100_000)}).passthrough().parse(value);

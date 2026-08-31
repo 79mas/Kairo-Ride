@@ -326,3 +326,72 @@ body {background:
   .earth-progress>div:first-child {flex-wrap:wrap;gap:5px;font-size:10px}
   .date-time-input {grid-template-columns:minmax(0,1fr) 104px;gap:8px}
 }
+.settings-page[role=dialog] {width:min(980px,100vw);max-width:980px!important;height:min(850px,94dvh);max-height:94dvh;padding:24px;display:flex;flex-direction:column;overflow:hidden}
+.settings-groups {display:flex;flex-wrap:wrap;gap:6px;border-bottom:1px solid #34363d;padding-bottom:12px;flex-shrink:0}
+.settings-groups button {padding:10px 13px;color:#a5a7af;border-radius:7px;font-size:13px;text-align:left}
+.settings-groups button[aria-current=page] {color:#f16305;background:#f1630515;box-shadow:inset 0 -2px #f16305}
+.settings-body {overflow-y:auto;min-height:0;flex:1;padding:0 4px 24px}
+.settings-body [hidden] {display:none!important}
+.settings-footer {display:flex;gap:12px;justify-content:flex-end;padding:15px 0 max(0px,env(safe-area-inset-bottom));border-top:1px solid #34363d}
+.settings-footer button {min-width:120px}
+.goal-section {padding:26px;overflow:visible}
+.goal-card,.goal-card .section-heading>strong {min-width:0;overflow-wrap:anywhere}
+.goal-card .section-heading {align-items:flex-start;gap:12px}
+.goal-card .section-heading>button {flex-shrink:0}
+.goal-grid {margin-top:22px}
+.earth-progress {max-width:none;width:100%;margin:16px 0 0;padding:0}
+.earth-progress>div:first-child {padding:0 20px;flex-wrap:wrap}
+.earth-progress [data-slot=progress] {border-radius:0;width:100%}
+.recharts-wrapper *:focus {outline:none!important}
+.recharts-wrapper:has(:focus-visible) {box-shadow:0 0 0 1px #6c605455,0 8px 28px #0007;border-radius:8px}
+.recharts-wrapper *:focus-visible {outline:1px solid #86746655!important;outline-offset:2px}
+.vehicle-summary {display:flex;align-items:center;gap:12px;cursor:pointer;list-style:none;padding:18px 0}
+.vehicle-summary::-webkit-details-marker {display:none}
+.vehicle-summary>strong {flex:1;min-width:0;overflow-wrap:anywhere}
+.vehicle-summary>svg {width:18px;height:18px;flex-shrink:0;transition:transform .15s}
+details[open]>.vehicle-summary>svg {transform:rotate(180deg)}
+.vehicle-expandable:not([open]),.maintenance-card:not([open]) {padding-top:0;padding-bottom:0}
+.vehicle-expandable .gear-body,.maintenance-card .gear-body {border-top:1px solid #34363d;padding-top:18px;padding-bottom:18px}
+.fleet-strip article[role=button] {cursor:pointer}
+.fleet-strip article[role=button]:hover {border-color:#f16305}
+.trip-ledger-table {width:100%;min-width:850px;border-collapse:collapse;font-size:13px}
+.trip-ledger-table th,.trip-ledger-table td {padding:14px 16px;border-bottom:1px solid #2b2d34;text-align:left}
+.trip-ledger-table th {white-space:nowrap}
+.trip-ledger-table th button {display:flex;gap:5px;align-items:center}
+.trip-ledger-table th svg {width:14px;height:14px}
+.trip-ledger-table tbody tr,.ride-ledger-table tbody tr {cursor:pointer}
+.trip-ledger-table tbody tr:hover {background:#ffffff05}
+.maintenance-calendar {padding:24px;margin:20px 0}
+.maintenance-month-grid {display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px;margin:18px 0}
+.maintenance-month-grid .weekday {text-align:center;color:#9599a4;font-size:12px;padding:8px 0}
+.maintenance-month-grid button {min-height:46px;border:1px solid #2c2e34;border-radius:8px;position:relative;padding:8px}
+.maintenance-month-grid button.selected {background:#f1630520;border-color:#f16305}
+.maintenance-month-grid button.today {box-shadow:inset 0 -2px #f16305}
+.maintenance-month-grid button i {display:block;width:5px;height:5px;background:#f16305;border-radius:50%;margin:4px auto 0}
+.calendar-tasks {display:flex;flex-direction:column;gap:8px;border-top:1px solid #2c2e34;padding:16px 0}
+.calendar-tasks button {text-align:left;padding:10px;background:#ffffff05;border-radius:8px}
+.maintenance-distance {border-top:1px solid #2c2e34;padding:18px 0 0}
+.maintenance-distance [data-slot=progress] {margin:12px 0}
+.editor-delete {justify-self:start;margin-top:10px}
+.gear-toolbar {flex-wrap:wrap}
+.gear-toolbar .search-field>input {padding-right:46px}
+.gear-toolbar .search-field>button {position:absolute;right:2px;top:2px}
+.gear-sort-control {display:flex;align-items:center;gap:4px;flex:1;min-width:180px}
+.gear-sort-control>.form-select {flex:1;min-width:0}
+.gear-sort-control>button {flex-shrink:0}
+.hero-primary {flex-wrap:wrap}
+.hero-primary p {position:static;flex-basis:100%;overflow-wrap:anywhere}
+.hero-primary strong {margin-top:0}
+@media(max-width:640px){
+ .settings-page[role=dialog] {width:100vw;max-width:100vw!important;height:100dvh;max-height:100dvh;border-radius:0;padding:18px 14px}
+ .settings-groups {display:grid;grid-template-columns:1fr 1fr}
+ .settings-groups button {font-size:12px;padding:9px}
+ .settings-footer button {flex:1}
+ .goal-section,.maintenance-calendar {padding:16px}
+ .earth-progress {padding:0}
+ .vehicle-summary {flex-wrap:wrap;gap:8px}
+ .vehicle-summary>strong {flex-basis:100%}
+ .vehicle-summary>svg {margin-left:auto}
+ .ride-ledger-toolbar {flex-wrap:wrap}
+ .maintenance-month-grid button {min-height:40px}
+}
