@@ -1,38 +1,37 @@
 # Kairo Ride: paleidimas per GitHub
 
-Versija 2.0.7 · 2026/08/31 · patogesni nustatymai, kelionės, tikslai ir archyvavimas
+Versija 2.0.8 · 2026/08/31 · skaičių formatas, eksportas į Drive ir kelionių juodraščiai
 
-## Trumpai: atnaujinimas iš 2.0.6 ar ankstesnio paketo
+## Trumpai: atnaujinimas iš 2.0.7 ar ankstesnio paketo
 
 1. Programėlėje atsisiųsk JSON atsarginę kopiją. Neįkeltus originalius priedus išsisaugok atskirai.
-2. Išskleisk `Kairo-Ride-2.0.7.zip` ir įkelk **vidinio `Kairo-Ride` aplanko turinį** į tą pačią GitHub repozitorijos šaknį. Pasirink `Commit changes`. Senų katalogų prieš tai netrink.
+2. Išskleisk `Kairo-Ride-2.0.8.zip` ir įkelk **vidinio `Kairo-Ride` aplanko turinį** į tą pačią GitHub repozitorijos šaknį. Pasirink `Commit changes`. Senų katalogų prieš tai netrink.
 3. Įkelk ir naujus failus iš `components/kairo`, `hooks`, `lib/kairo` bei `tests`. Jau esančių paslėptų konfigūracijos failų keisti nereikia. `GOOGLE_CLIENT_ID` GitHub kintamasis ir esama Google konfigūracija lieka tie patys.
-4. Sulauk žalio `Actions → Publish Kairo Ride` rezultato. Atnaujink puslapį su internetu, kad atsisiųstų naują programą, tada uždaryk visus Kairo Ride naršyklės ir įdiegtos PWA langus ir atverk dar kartą. Tai atlik **telefone ir kompiuteryje**. Apačioje turi būti **2.0.7**. Prieš tęsiant darbą patikrink versiją abiejuose įrenginiuose: ankstesnis kodas neatpažįsta naujų archyvavimo ir tikslų laukų. Naršyklės duomenų nevalyk ir PWA neišdiek.
+4. Sulauk žalio `Actions → Publish Kairo Ride` rezultato. Atnaujink puslapį su internetu, kad atsisiųstų naują programą, tada uždaryk visus Kairo Ride naršyklės ir įdiegtos PWA langus ir atverk dar kartą. Tai atlik **telefone ir kompiuteryje**. Apačioje turi būti **2.0.8**. Prieš testuodamas naujus veiksmus patikrink versiją abiejuose įrenginiuose. Naršyklės duomenų nevalyk ir PWA neišdiek.
 5. `Settings → Synchronization → Automatic sync` numatytai įjungtas. Jei prašoma, paspausk **Refresh access**. Esamos duomenų bazės iš naujo importuoti nereikia.
 
-### Kas pasikeitė 2.0.7
+### Kas pasikeitė 2.0.8
 
-- Settings turi keturias sutartas grupes ir Cancel / Apply.
-- Hero: Last ride, Last trip ir esami vidurkiai.
-- Redaguojami tikslai su pavadinimu, priemonėmis, laikotarpiu ir pasirinkimu globaliai juostai.
-- Rides ir Trips filtrai; Trips lentelė; failai tik kelionėms. Seni priedai perkeliami automatiškai, originalai išlieka.
-- Suskleidžiamas garažas ir priežiūra; Fleet atveria garažo kortelę.
-- Priežiūros mėnesinis kalendorius ir likę kilometrai iki darbo.
-- Ekipuotės rūšiavimas pagal pavadinimą, kategoriją ir statusą abiem kryptimis.
-- Ištrynimas tik redaguojant ir patvirtinus; duomenų istorija išlieka, nauji ryšiai su pašalintais daiktais neleidžiami.
-- Subtilesnis grafikų fokusas ir Week / Month užrašai.
+- Skaičiai numatytai rodomi `1 234,56`; formatą keisk `Settings → Appearance & regional settings → Number format`, tada `Apply`.
+- Fleet pradeda nuo kairiausios priemonės; Add liko garaže.
+- Globalioje progreso juostoje pateikiama prognozuojama pasiekimo data pasirinktu datos formatu.
+- Sumažintas apatinės juostos aukštis, Rides datos stulpelis nebefiksuotas.
+- Goals kortelės suskleidžiamos, Settings grupės pasirenkamos meniu šalia pavadinimo.
+- Eksportuojant pasirenki `Download file`, `Save to Google Drive` arba abu. Failo pavadinime yra versija ir laikas; Drive kopijos saugomos `Kairo Ride / Exports`. Jos neperrašo darbinės duomenų bazės.
+- `Add as trip` iškart leidžia pasirinkti failus. Jie išsaugomi tik su `Save`; `Cancel` juos atmeta.
+- Kelionės lange: `Close` be pakeitimų, `Cancel` esant pakeitimams ir `Save` jiems pritaikyti.
+- Langai prisitaiko prie telefone atidarytos klaviatūros ir leidžia nuslinkti iki apatinių laukų.
 
-**Prieš tęsiant darbą atnaujink visus įrenginius į 2.0.7.** Senesnės versijos neatpažįsta naujų laukų. Iš anksto išsisaugok JSON kopiją ir palauk, kol įsikels originalai. Duomenų iš naujo importuoti nereikia.
-
+Atnaujink abu įrenginius. Duomenų iš naujo importuoti, naujų Google leidimų prašyti ar keisti OAuth nereikia. Prieš atnaujinimą išsisaugok JSON kopiją ir palauk, kol įsikels originalai. Tikrą prisijungimą, failų įkėlimą ir klaviatūros elgesį dar pasitikrink telefone bei kompiuteryje.
 
 ## 1. Pasiruošk paketą
 
-1. Atsisiųsk ir išskleisk `Kairo-Ride-2.0.7.zip` kompiuteryje.
+1. Atsisiųsk ir išskleisk `Kairo-Ride-2.0.8.zip` kompiuteryje.
 2. Atverk išskleistą `Kairo-Ride` aplanką. Jame turi matytis `package.json`, `app`, `components`, `public` ir kiti failai.
 3. **Nekelk į GitHub paties ZIP.** Reikia jo viduje esančių failų ir aplankų.
 4. Nepridėk savo Excel, JSON duomenų kopijų, nuotraukų, video, GPX ar prisijungimo paslapčių. `.gitignore` nėra apsauga nuo rankinio jų įkėlimo per svetainę.
 
-Jei jau suvedei duomenų ankstesnėje Kairo Ride versijoje, prieš persikeldamas atsidaryk `Settings → Import / Export → Download JSON backup` (`Nustatymai`, pasirinkus lietuvių kalbą). Dar neįkeltus priedų originalus išsisaugok atskirai. Senų duomenų netrink.
+Jei jau suvedei duomenų ankstesnėje Kairo Ride versijoje, prieš persikeldamas atsidaryk `Settings → Import / Export → Export JSON backup` (`Nustatymai`, pasirinkus lietuvių kalbą). Dar neįkeltus priedų originalus išsisaugok atskirai. Senų duomenų netrink.
 
 ## 2. Sukurk naują GitHub saugyklą
 
@@ -52,7 +51,7 @@ Jei atnaujini jau sukurtą repozitoriją ir naršyklė paslėptą failą atmeta,
 
 **Prieš kiekvieną atnaujinimą visko trinti nereikia.** Į tą patį kelią įkeltas tokio pat pavadinimo failas naujame commit'e atnaujinamas. Tačiau failas, kurio naujame pakete nebėra, savaime neištrinamas ir lieka repozitorijoje.
 
-Šiam 2.0.7 paketui:
+Šiam 2.0.8 paketui:
 
 - įkelk išskleisto `Kairo-Ride` aplanko turinį į repozitorijos šaknį ir patvirtink pakeitimus;
 - senų `app`, `components`, `lib`, `public` ar kitų katalogų prieš tai netrink;
@@ -64,7 +63,7 @@ Jei atnaujini jau sukurtą repozitoriją ir naršyklė paslėptą failą atmeta,
 1. Vieną kartą pasirink `File → Clone repository` ir atsisiųsk savo `Kairo-Ride` repozitoriją.
 2. Nukopijuok naujo paketo turinį į tą vietinį aplanką ir sutik pakeisti tokio pat pavadinimo failus.
 3. Jei leidimo pastabose nurodyta pašalinti seną failą, ištrink jį tame vietiniame aplanke. **Neliesk `.git` katalogo.**
-4. GitHub Desktop lange peržiūrėk `Changes`, įrašyk, pvz., `Update Kairo Ride to 2.0.7`, pasirink `Commit to main`, tada `Push origin`.
+4. GitHub Desktop lange peržiūrėk `Changes`, įrašyk, pvz., `Update Kairo Ride to 2.0.8`, pasirink `Commit to main`, tada `Push origin`.
 
 GitHub istorija leidžia grįžti prie ankstesnio commit'o, todėl viso projekto ištrynimas prieš kiekvieną pataisą tik padidina riziką netyčia praleisti failą.
 

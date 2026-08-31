@@ -1,3 +1,4 @@
+import {formatNumber} from "./numbers";
 import { z } from "zod";
 import {displayDate} from "./calendar";
 
@@ -337,5 +338,5 @@ export function localDateTime(iso?: string) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}T${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
 }
 export const today = () => localDateTime().slice(0,10);
-export const formatKm = (n: number | null, locale="en-US") => n === null ? "—" : new Intl.NumberFormat(locale, {maximumFractionDigits: 1}).format(n);
+export const formatKm = (n: number | null, locale="en-US") => n === null ? "—" : (void locale, formatNumber(n));
 export const formatDate = displayDate;

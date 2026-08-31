@@ -110,7 +110,7 @@ test("Analytics offers custom total/vehicle goals even before the first distance
 test("goal card renders selected scope, target, progress and the inactive forecast explanation",()=>{
   const state=fixture([change("wheel",{...wheel,status:"in_repair"}),change("reading",record),change("goal",{id:"goal",wheelId:wheel.id,targetKm:10000,createdAt:record.at})]);
   const html=render(React.createElement(GoalForecasts,{state,actions}));
-  assert.match(html,/Lynx-S/);assert.match(html,/10,000/);assert.match(html,/vehicle-status-in_repair/);
+  assert.match(html,/Lynx-S/);assert.match(html,/10\s000/);assert.match(html,/vehicle-status-in_repair/);
   assert.match(html,/Forecast paused/);assert.match(html,/role="progressbar"/);
   assert.match(html,/aria-label="Edit goal: Distance goal \(Lynx-S, all time\)"/);
   assert.doesNotMatch(html,/aria-label="Delete goal/);
@@ -118,7 +118,7 @@ test("goal card renders selected scope, target, progress and the inactive foreca
 test("Earth footer progress exposes exact totals and percentages above one lap accessibly",()=>{
   const state=fixture([change("wheel",wheel),change("reading",{...record,odometerKm:80250})]);
   const html=render(React.createElement(EarthProgress,{state}));
-  assert.match(html,/80,150 \/ 40,075 km/);assert.match(html,/200%/);
+  assert.match(html,/80\s150 \/ 40\s075 km/);assert.match(html,/200%/);
   assert.match(html,/aria-valuenow="100"/);assert.match(html,/aria-valuetext="200%"/);
 });
 test("grouped charts retain quiet click/focus affordances and format every full date",async()=>{
@@ -136,7 +136,7 @@ test("save wiring remembers a vehicle only after committing; settings expose dat
   const app=await readFile(new URL("../components/kairo/app.tsx",import.meta.url),"utf8");
   const forms=await readFile(new URL("../components/kairo/forms.tsx",import.meta.url),"utf8");
   const settings=await readFile(new URL("../components/kairo/storage-panel.tsx",import.meta.url),"utf8");
-  assert.match(app,/await commitChanges\(form.namespace,changes\);\s*if\(!form.entity&&!form.reading\)rememberRecordVehicle/);
+  assert.match(app,/await commitChanges\(form.namespace,\[\.\.\.changes,\.\.\.prepared.changes\],prepared.blobs\);\s*if\(!form.entity&&!form.reading\)rememberRecordVehicle/);
   assert.match(app,/validateRideRecord\(validationState/);assert.match(forms,/validateRideRecord\(/);
   assert.match(app,/preferredRecordVehicle\(state,namespace.current\)/);
   assert.match(settings,/Dates & calendar/);assert.match(settings,/Date format/);assert.match(settings,/Week starts on/);
@@ -194,5 +194,31 @@ test("v207 all Gear sorting directions and subtle chart focus are present",async
 });
 test("v207 global goal bar includes name, scope, period and target",()=>{
  const html=render(React.createElement(EarthProgress,{state:fixture()}));
- assert.match(html,/Around the Earth \(all vehicles, all time\) — 40,075 km/);
+ assert.match(html,/Around the Earth \(all vehicles, all time\) — 40\s075 km/);
+});
+
+test("v208 goals are collapsed by default and never labelled milestones",()=>{
+  const html=render(React.createElement(GoalForecasts,{state:fixture(),actions}));
+  assert.match(html,/<details class="goal-card"><summary>/);
+  assert.doesNotMatch(html,/milestone/i);assert.doesNotMatch(html,/<details[^>]*class="goal-card"[^>]*open/);
+});
+test("v208 selecting Add as trip exposes a file input in the record form",()=>{
+  const trip={id:"trip208-ui",name:"Journey",startDate:"2026-08-31",endDate:"2026-08-31",notes:""};
+  const state=fixture([change("wheel",wheel),change("trip",trip)]);
+  const plain=form(state),asTrip=form(state,{kind:"ride",tripId:trip.id});
+  assert.doesNotMatch(plain,/type="file"/);
+  assert.match(asTrip,/type="file"/);assert.match(asTrip,/Add trip files/);assert.match(asTrip,/Added only when you press Save/);
+});
+test("v208 global progress contains a muted forecast date using the selected date format",()=>{
+  const now=new Date(),today=now.toISOString().slice(0,10),yesterday=new Date(now.getTime()-86400000).toISOString().slice(0,10);
+  const state=fixture([change("wheel",{...wheel,baselineKm:0,baselineDate:yesterday}),change("reading",{...record,odometerKm:300,at:today+"T12:00:00.000Z"})]);
+  calendar.saveCalendarPreferences({dateFormat:"dd.mm.yyyy",weekStartsOn:1});
+  try{const html=render(React.createElement(EarthProgress,{state}));assert.match(html,/class="progress-eta"/);assert.match(html,/Calculated achievement date: \d{2}\.\d{2}\.\d{4}/);}
+  finally{calendar.saveCalendarPreferences({dateFormat:"yyyy/mm/dd",weekStartsOn:1});}
+});
+test("v208 Settings sections are a dropdown next to the title, with draft number formatting",async()=>{
+  const source=await readFile(new URL("../components/kairo/storage-panel.tsx",import.meta.url),"utf8");
+  assert.match(source,/settings-title-row/);assert.doesNotMatch(source,/<nav className="settings-groups"/);
+  assert.match(source,/<Pick label=\{tr\("Settings sections"/);assert.match(source,/value=\{draft.numberFormat\}/);
+  assert.match(source,/setNumberFormat\(draft.numberFormat\)/);
 });

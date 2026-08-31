@@ -2,7 +2,7 @@
 
 ![Kairo Ride icon](public/icon-192.png)
 
-**Version 2.0.7 · clearer settings, trip files, editable goals and safe archiving**
+**Version 2.0.8 · regional numbers, Drive exports and safer trip editing**
 
 A privacy-first, English-first Progressive Web App for electric unicycle riders. Track odometer history, individual rides, multi-day trips, vehicles, gear, maintenance, insurance and original trip files from both phone and desktop.
 
@@ -19,13 +19,39 @@ Kairo Ride works offline, can sync directly to each user's Google Drive, and exp
 | Maintenance | 20 inspection, condition-based work, insurance and custom templates; editable date / odometer autofill, independent reminder checkboxes and recurring checks |
 | Gear | Collapsible item cards for helmets, footwear, cameras, Cardo and accessories, with “Used with” relationships |
 | Analytics | Draggable/zoomable cumulative and grouped bar charts; visible-series autoscale; custom total/vehicle goals with 30-day-average forecasts |
-| Settings | English/Lithuanian, date format, week start, reminders, Drive sync, backups and installation |
+| Settings | English/Lithuanian, number format, date format, week start, reminders, Drive sync, backups and installation |
 | Attachments | Associates GPX, WheelLog, Komoot exports, photos, videos, and other original files with trips |
 | Data tools | Imports supported backups and exports JSON or a real `.xlsx` workbook |
 
 The interface uses a fixed black/orange theme with `#f16305` as the primary colour and is responsive on phones and desktop browsers. English is the default language; Lithuanian can be selected in Settings. The included web app manifest, service worker, favicons, Apple touch icon, and maskable icons make it installable as a PWA.
 
-## New in 2.0.7
+## New in 2.0.8
+
+- **Numbers:** default `1 234,56`; choose space/comma, comma/dot, dot/comma or space/dot in Settings. Language, dates and number separators are independent. Display rounding does not change stored values or numeric Excel cells.
+- **Fleet:** starts at the leftmost card when Home opens or vehicle order changes. Inactive vehicles stay last. Fleet has no Add button; add vehicles in Garage.
+- **Global progress:** adds a muted calculated achievement date after the percentage, using the selected date format and existing 30-day forecast. Unavailable forecasts and reached goals are labelled honestly.
+- **Footer and table:** compact footer; the Rides Date column scrolls with the other columns.
+- **Goals:** collapsible cards, labelled Goals only.
+- **Settings:** category dropdown beside the title; existing Apply / Cancel behavior retained.
+- **Export:** JSON and Excel filenames include `2.0.8` and a timestamp. Choose Download file, Save to Google Drive, or both. Drive exports go into `Kairo Ride / Exports`, never overwrite `database.json`, and do not become trip attachments. If an upload fails, retry the same export without starting another download. Google access and an internet connection are required only for the Drive option; a local download still works offline.
+- **Add as trip:** immediately exposes a multi-file picker. Files remain a draft until Save. Trip, ride, odometer and selected originals are stored in one local transaction; a failed write rolls the whole transaction back. Normal sync then uploads saved originals.
+- **Trip details:** Close when unchanged; Cancel when fields or files have changed; Save applies the draft. Edit exposes fields and deletion controls. File-link removals are staged until Save; cancelling keeps the saved links and original Drive files.
+- **Phone forms:** dialogs track the visual viewport, remain scrollable above the keyboard and keep focused fields in view.
+
+No database format migration or new Google permissions are needed for this patch. Keep the same GitHub Pages URL and preserve the existing OAuth configuration.
+
+### Quick acceptance checks
+
+1. Switch number formats, Apply, then reopen Settings. Check Home, Rides, chart tooltips and the global progress bar; Cancel must discard a draft choice.
+2. Open Home with active and inactive vehicles; Fleet starts at the left. Swipe it, visit another tab, then return.
+3. Export each format with download only, Drive only and both. Check `Kairo Ride / Exports`. Local-only exports require no Google connection. Original attachments are not embedded.
+4. Create a ride, enable Add as trip, select two files, then Cancel. No ride, trip or attachment should have been created. Repeat and Save.
+5. Open a trip, edit its name or stage a file; Cancel keeps the saved trip unchanged. Repeat and Save, then synchronize another device.
+6. On your phone, focus fields near the bottom of a long form, scroll to the footer, dismiss the keyboard and rotate the screen.
+
+Automated tests cover data transactions, Drive upload protocol and rendered interface contracts. Real Google OAuth, mobile keyboard behavior and the final GitHub deployment still require testing on your devices. Implementation references: [Google Drive uploads](https://developers.google.com/workspace/drive/api/guides/manage-uploads), [Chrome viewport behavior](https://developer.chrome.com/blog/viewport-resize-behavior).
+
+## Previously in 2.0.7
 
 - **Settings:** four groups — Appearance & regional settings, Synchronization, Import / Export, Information. Draft settings apply with Apply; Cancel discards the draft. Account, import/export and storage actions are immediate.
 - **Hero:** Last ride is the default. Last trip shows the complete latest trip distance. All existing long-term average options remain.
@@ -52,7 +78,7 @@ The window includes today and days with zero distance. For a sparse odometer jou
 
 The date is not predicted without recent distance, for inconsistent/incomplete history, or for a selected inactive vehicle. A reached goal is labelled as reached. Future-dated records are excluded from the goal's current distance and rolling average. Goal scope is independent of the chart legend.
 
-**Compatibility:** update every phone/computer window to **2.0.7 before saving changed settings, goals or archived items**. Older strict validators do not understand the new goal kind or empty ride names. Old operations are not rewritten; database names, record IDs, Google access and existing files stay unchanged.
+**Compatibility:** 2.0.8 preserves the 2.0.7 history format. Upgrade every phone/computer window before testing the new editing flows. Old operations are not rewritten; database names, record IDs, Google access and existing files stay unchanged. Versions before 2.0.7 may not recognize newer history fields.
 
 ## Added in 2.0.5
 
@@ -78,7 +104,7 @@ The popup appears on every Garage visit and whenever you start a new record with
 
 All vehicles remain in Fleet, statistics, filters and historical rides. You may edit an existing archived record or add ride details to a legacy record, but cannot create a new record or move a record onto a different inactive vehicle. Historical imports, sync and recovery still work. Reactivate a vehicle in Garage when it is ready for new records. Offline devices only know the status they last synchronized.
 
-The internal history key `reading` is intentionally unchanged to preserve old backups and operation IDs. Older Excel exports with a `Readings` report sheet still import. The Wheels export includes current status, saved status and manual reminder text; History remains the authoritative recovery data. Status fields were introduced in 2.0.5; update all devices to the current **2.0.7** release to use statuses, unnamed rides and goals together.
+The internal history key `reading` is intentionally unchanged to preserve old backups and operation IDs. Older Excel exports with a `Readings` report sheet still import. The Wheels export includes current status, saved status and manual reminder text; History remains the authoritative recovery data. Status fields were introduced in 2.0.5; update all devices to the current **2.0.8** release to use statuses, unnamed rides and goals together.
 
 ## Privacy and storage model
 
@@ -214,7 +240,7 @@ JSON and Excel backups contain attachment metadata and Drive links, **not the or
 
 ## Important limitations
 
-- Version 2.0.7 is an early product build. Automated checks cover domain logic, storage, recovery, rendered UI contracts and static PWA output. Real Google OAuth, the final GitHub Pages deployment, visual layout and physical-phone interaction must still be verified with the owner's accounts and devices.
+- Version 2.0.8 is an early product build. Automated checks cover domain logic, storage, recovery, rendered UI contracts and static PWA output. Real Google OAuth, the final GitHub Pages deployment, visual layout and physical-phone interaction must still be verified with the owner's accounts and devices.
 - A single attachment is limited to 512 MB. An imported backup is limited to 25 MB. The browser may impose a lower practical storage limit.
 - Large uploads are not guaranteed to continue after the PWA is closed or suspended. Keep the app open until synchronization finishes.
 - Maintenance and insurance notifications are local. They are checked while the PWA is open or active; a fully closed mobile PWA cannot guarantee a scheduled alert without a push-notification server.
@@ -280,9 +306,9 @@ For browser-only updates, upload the package contents to the repository root and
 
 For repeated updates, GitHub Desktop is safer and easier to review: clone the repository once, copy the new package contents over the local clone, review modified and deleted files, commit, and choose [**Push origin**](https://docs.github.com/en/desktop/making-changes-in-a-branch/pushing-changes-to-github-from-github-desktop). Never delete the local `.git` directory.
 
-Version 2.0.7 does not require deleting any application directory or changing OAuth configuration. This archive includes the earlier 2.0.4 and 2.0.5 fixes. Upload the whole package, including the new archive and overview-extras modules. Existing deployment settings and repository variables remain unchanged. If you configured the public client ID directly in `public/kairo-config.json` instead of a repository variable, preserve that value when replacing the file. No application files need to be removed for this patch.
+Version 2.0.8 does not require deleting any application directory or changing OAuth configuration. This archive includes the earlier 2.0.4 and 2.0.5 fixes. Upload the whole package, including the new archive and overview-extras modules. Existing deployment settings and repository variables remain unchanged. If you configured the public client ID directly in `public/kairo-config.json` instead of a repository variable, preserve that value when replacing the file. No application files need to be removed for this patch.
 
-Before updating, export a JSON backup and preserve any unsynced original attachments. Keep the same site URL. Wait for the successful deployment, reload the app while online to fetch the update, close **all** Kairo Ride tabs/windows on each device, and reopen. The service worker intentionally waits for old windows to close before activating its new cache. Do not clear browser data or uninstall the PWA to update: this could discard unsynced records. Confirm **2.0.7** in the footer on both phone and computer before saving unnamed rides or goals. Refresh Google access if asked. Existing records do not need reimporting; database names and history version are unchanged.
+Before updating, export a JSON backup and preserve any unsynced original attachments. Keep the same site URL. Wait for the successful deployment, reload the app while online to fetch the update, close **all** Kairo Ride tabs/windows on each device, and reopen. The service worker intentionally waits for old windows to close before activating its new cache. Do not clear browser data or uninstall the PWA to update: this could discard unsynced records. Confirm **2.0.8** in the footer on both phone and computer before saving unnamed rides or goals. Refresh Google access if asked. Existing records do not need reimporting; database names and history version are unchanged.
 
 ## Release checklist
 

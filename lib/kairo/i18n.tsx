@@ -1,3 +1,4 @@
+import {readNumberFormat,saveNumberFormat,numberPreferenceKey,type NumberFormat} from "./numbers";
 import {createContext,useContext,useEffect,useMemo,useState,type ReactNode} from "react";
 import {calendarPreferenceKey,readCalendarPreferences,saveCalendarPreferences,DEFAULT_CALENDAR,type CalendarPreferences} from "./calendar";
 
@@ -5,6 +6,7 @@ export type Language="en"|"lt";
 const LANGUAGE_KEY="kairo-language";
 
 type I18n=CalendarPreferences & {
+  numberFormat:NumberFormat; setNumberFormat:(value:NumberFormat)=>void;
   language:Language;
   locale:string;
   setLanguage:(language:Language)=>void;
@@ -12,10 +14,13 @@ type I18n=CalendarPreferences & {
   setCalendar:(value:Partial<CalendarPreferences>)=>void;
 };
 
-const fallback:I18n={language:"en",locale:"en-US",setLanguage:()=>{},tr:english=>english,...DEFAULT_CALENDAR,setCalendar:()=>{}};
+const fallback:I18n={numberFormat:"space-comma",setNumberFormat:()=>{},language:"en",locale:"en-US",setLanguage:()=>{},tr:english=>english,...DEFAULT_CALENDAR,setCalendar:()=>{}};
 const Context=createContext<I18n>(fallback);
 
 export function LanguageProvider({children}:{children:ReactNode}){
+  const [numberFormat,setNumberState]=useState(readNumberFormat);
+  const setNumberFormat=(value:NumberFormat)=>{saveNumberFormat(value);setNumberState(value);};
+  useEffect(()=>{const update=(e:StorageEvent)=>{if(e.key===numberPreferenceKey())setNumberState(readNumberFormat());};window.addEventListener("storage",update);return()=>window.removeEventListener("storage",update);},[]);
   const [calendar,setCalendarState]=useState(readCalendarPreferences);
   const setCalendar=(patch:Partial<CalendarPreferences>)=>{setCalendarState(current=>{const next={...current,...patch};saveCalendarPreferences(next);return next;});};
   useEffect(()=>{const update=(event:StorageEvent)=>{if(event.key===calendarPreferenceKey())setCalendarState(readCalendarPreferences());};window.addEventListener("storage",update);return()=>window.removeEventListener("storage",update);},[]);
@@ -26,12 +31,12 @@ export function LanguageProvider({children}:{children:ReactNode}){
   const setLanguage=(next:Language)=>{localStorage.setItem(LANGUAGE_KEY,next);setLanguageState(next);};
   useEffect(()=>{document.documentElement.lang=language;},[language]);
   const value=useMemo<I18n>(()=>({
-    language,
+    language,numberFormat,setNumberFormat,
     locale:language==="lt"?"lt-LT":"en-US",
     setLanguage,
     ...calendar,setCalendar,
     tr:(english,lithuanian)=>language==="lt"?(lithuanian??english):english,
-  }),[language,calendar]);
+  }),[language,calendar,numberFormat]);
   return <Context.Provider value={value}>{children}</Context.Provider>;
 }
 

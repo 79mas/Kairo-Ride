@@ -43,7 +43,7 @@ export async function loadWorkspace(namespace: string): Promise<Workspace> {
 }
 
 /** One transaction for the event and optional file: quota errors cannot leave a phantom attachment. */
-export async function storeOperation(namespace: string, operation: Operation, blob?: {attachmentId: string; blob: Blob}) {
+export async function storeOperation(namespace: string, operation: Operation, blob?: {attachmentId: string; blob: Blob}|{attachmentId: string; blob: Blob}[]) {
   const db=await database();
   const tx=db.transaction(["operations","blobs"],"readwrite"); const done=complete(tx);
   try {
@@ -70,14 +70,14 @@ export async function storeOperation(namespace: string, operation: Operation, bl
       }
     }
     tx.objectStore("operations").add({key:keyFor(namespace,operation.id),namespace,operation,uploaded:false} satisfies StoredOperation);
-    if (blob) tx.objectStore("blobs").put({key:keyFor(namespace,blob.attachmentId),namespace,...blob} satisfies StoredBlob);
+    for(const file of blob?(Array.isArray(blob)?blob:[blob]):[]) tx.objectStore("blobs").put({key:keyFor(namespace,file.attachmentId),namespace,...file} satisfies StoredBlob);
   } catch (error) {tx.abort();await done.catch(()=>{});throw error;}
   await done; announce(namespace);
 }
 export async function commit(namespace: string, kind: Kind, value: Entity | null, entityId: string, blob?: Blob, parents?: string[]) {
   return commitChanges(namespace,[{kind,value,entityId,parents}],blob?{attachmentId:entityId,blob}:undefined);
 }
-export async function commitChanges(namespace: string, changes: {kind:Kind;value:Entity|null;entityId:string;parents?:string[]}[], blob?: {attachmentId:string;blob:Blob}) {
+export async function commitChanges(namespace: string, changes: {kind:Kind;value:Entity|null;entityId:string;parents?:string[]}[], blob?: {attachmentId:string;blob:Blob}|{attachmentId:string;blob:Blob}[]) {
   const [workspace,device]=await Promise.all([loadWorkspace(namespace),deviceId()]);
   const op=makeOperation(workspace.state,device,changes.map(({kind,value,entityId})=>({kind,value,entityId})));
   changes.forEach((change,index)=>{if(change.parents)op.changes[index].parents=[...change.parents];});

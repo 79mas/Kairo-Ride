@@ -174,10 +174,10 @@ body {background:
 .ride-ledger-table th svg {width:13px;height:13px}
 .ride-ledger-table td {padding:5px 12px;height:48px;border-bottom:1px solid #24262c}
 .ride-ledger-table tbody tr:last-child td {border-bottom:0}
-.ride-ledger-table td.ledger-col-date {position:sticky;left:0;z-index:1;background:#111217;border-right:1px solid #292b31}
+.ride-ledger-table td.ledger-col-date {position:static;background:#111217;border-right:1px solid #292b31}
 .ride-ledger-table tr:hover td.ledger-col-date {background:#1c1d22}
 .ride-ledger-table tr.warning-row td.ledger-col-date {background:#282417}
-.ride-ledger-table th.ledger-col-date {left:0;z-index:3;border-right:1px solid #34363d}
+.ride-ledger-table th.ledger-col-date {border-right:1px solid #34363d}
 .ride-ledger-table td.ledger-col-date button {display:flex;align-items:center;gap:6px;min-height:36px;text-align:left}
 .ride-ledger-table .ledger-col-date svg {width:14px;height:14px;color:#e3b775}
 .ride-ledger-table .ledger-col-distance,.ride-ledger-table .ledger-col-daily,.ride-ledger-table .ledger-col-odometer {text-align:right}
@@ -395,3 +395,35 @@ details[open]>.vehicle-summary>svg {transform:rotate(180deg)}
  .ride-ledger-toolbar {flex-wrap:wrap}
  .maintenance-month-grid button {min-height:40px}
 }
+
+/* 2.0.8 */
+.settings-title-row{display:flex;align-items:center;gap:16px;min-width:0}
+.settings-title-row .form-select{flex:1;min-width:0;max-width:420px;margin-left:auto}
+.goal-card>summary{display:flex;align-items:center;justify-content:space-between;gap:16px;cursor:pointer;list-style:none}
+.goal-card>summary::after{content:"+";color:#a7a8ae;font-size:22px}
+.goal-card[open]>summary::after{content:"−"}
+.goal-card>summary strong{overflow-wrap:anywhere}
+.goal-card>summary>span{white-space:nowrap;color:#a7a8ae}
+.goal-card-body{padding-top:18px}
+.progress-eta{color:#888b94;font-weight:400;font-size:11px}
+.app-footer{padding:3px 20px;min-height:44px;gap:12px;align-items:center}
+.app-footer>span:first-child{padding-top:0}
+.app-footer [data-slot=button]{min-height:40px}
+@media(max-width:700px){.app-footer{margin-bottom:calc(68px + env(safe-area-inset-bottom,0px));padding:2px 18px}.settings-title-row{gap:8px}.settings-title-row .form-select{font-size:11px}.goal-card>summary{flex-wrap:wrap}.fleet-strip{scroll-snap-type:none;overflow-anchor:none}}
+
+/* Dialogs stay inside the viewport above the on-screen keyboard. */
+[role=dialog],[role=alertdialog]{top:calc(var(--dialog-viewport-top,0px) + var(--dialog-viewport-height,100dvh) / 2);max-height:calc(var(--dialog-viewport-height,100dvh) - 24px);overflow-y:auto;overscroll-behavior:contain;scroll-padding:20px;-webkit-overflow-scrolling:touch}
+.settings-page[role=dialog]{height:min(94dvh,calc(var(--dialog-viewport-height,100dvh) - 24px));max-height:calc(var(--dialog-viewport-height,100dvh) - 24px)}
+.settings-body,.trip-draft-body{min-height:0;overflow-y:auto;overscroll-behavior:contain}
+.trip-draft-dialog[role=dialog]{overflow:hidden;display:flex;flex-direction:column}
+.trip-draft-dialog>.entity-form{min-height:0;overflow:hidden}
+.trip-draft-body{display:flex;flex-direction:column;gap:17px;padding-right:3px}
+.trip-fields{display:flex;flex-direction:column;gap:17px}
+.trip-draft-dialog [data-slot=dialog-footer]{flex-shrink:0;display:flex;flex-direction:row;padding-top:10px;border-top:1px solid #292b31}
+.file-picker{display:flex;align-items:center;flex-wrap:wrap;gap:10px;font-size:13px}
+.file-picker svg{width:18px;color:#f16305}
+.file-picker input{max-width:100%;font-size:14px}
+.pending-file{display:flex;align-items:center;gap:10px;border-top:1px solid #292b31;padding:8px 0}
+.pending-file>span{flex:1;min-width:0;overflow-wrap:anywhere;font-size:12px}
+.pending-file small{display:block;color:#999ba3}
+@media(max-width:420px){[role=dialog] .form-grid{grid-template-columns:1fr}[role=dialog]{padding:18px 14px}}

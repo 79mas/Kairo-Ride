@@ -313,7 +313,8 @@ function memoryDrive(permissionId){
       if(method==="POST"){const value=create(JSON.parse(options.body));return Response.json(value);}
       const q=url.searchParams.get("q"),props=[...q.matchAll(/key='([^']+)' and value='([^']+)'/g)];
       const result=[...files.values()].filter(f=>props.every(([,key,value])=>f.appProperties?.[key]===value)).filter(f=>!q.includes("mimeType = 'application/vnd.google-apps.folder'")||f.mimeType==="application/vnd.google-apps.folder");
-      return Response.json({files:result.map(f=>Object.fromEntries(Object.entries(f).filter(([key])=>key!=="content")))});
+      const name=q.match(/name = \'([^\']+)\'/)?.[1],parent=q.match(/\'([^\']+)\' in parents/)?.[1];
+      return Response.json({files:result.filter(f=>(!name||f.name===name)&&(!parent||f.parents?.includes(parent))).map(f=>Object.fromEntries(Object.entries(f).filter(([key])=>key!=="content")))});
     }
     const file=files.get(url.pathname.split("/").at(-1));if(!file)return new Response(null,{status:404});
     if(method==="PATCH"){Object.assign(file,JSON.parse(options.body));if(url.searchParams.has("addParents"))file.parents=[url.searchParams.get("addParents")];return Response.json(file);}
@@ -400,4 +401,56 @@ test("v207 Drive database marker restoration survives a stale device and fresh r
   const replica="v207-fresh-"+crypto.randomUUID();await client.pull(replica,()=>{});
   assert.equal((await db.loadWorkspace(replica)).state.wheel[0].archived,false);
   assert.equal((await db.loadWorkspace(replica)).state.conflicts.length,0);
+});
+
+test("v208 JSON and Excel exports upload byte-for-byte into Exports, not the database",async()=>{
+  const permissionId="990000000208",ns=`google:${permissionId}`,remote=memoryDrive(permissionId),client=new DriveClient("test-token",Date.now()+3600000,remote.fetcher);
+  await db.commit(ns,"wheel",wheel,wheel.id);await client.sync(ns,()=>{});
+  const before=await db.loadWorkspace(ns),snapshot=[...remote.files.values()].find(f=>f.name==="database.json"),snapshotContent=d.canonical(snapshot.content);
+  const json=new Blob([JSON.stringify(d.backup(before.operations))],{type:"application/json"});
+  const excel=new Blob([x.writeXlsx(x.exportWorkbook(before.operations))],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+  for(const [format,blob] of [["json",json],["xlsx",excel]]){
+    const name=`Kairo-Ride-2.0.8-2026-08-31.${format}`,id=await client.saveExport(ns,blob,name),file=remote.files.get(id);
+    assert.equal(file.name,name);assert.equal(file.mimeType,blob.type);assert.equal(file.appProperties.kind,"export");
+    assert.deepEqual(file.content,new Uint8Array(await blob.arrayBuffer()));
+    assert.equal(remote.files.get(file.parents[0]).name,"Exports");
+    assert.equal(await client.saveExport(ns,blob,name),id,"Retry reuses the completed export");
+  }
+  assert.equal([...remote.files.values()].filter(f=>f.appProperties?.kind==="export").length,2);
+  assert.equal(d.canonical(snapshot.content),snapshotContent);
+  assert.equal((await db.loadWorkspace(ns)).operations.length,before.operations.length);
+  await client.sync(ns,()=>{});assert.equal((await db.loadWorkspace(ns)).state.attachment.length,0);
+});
+test("v208 export retries after a lost final response without duplicating the file",async()=>{
+  const permissionId="990000000209",ns=`google:${permissionId}`,remote=memoryDrive(permissionId);let lose=true;
+  const client=new DriveClient("test-token",Date.now()+3600000,async(url,options)=>{
+    const result=await remote.fetcher(url,options);
+    if(lose&&options?.method==="PUT"&&!new Headers(options.headers).get("Content-Range").includes("*/")){lose=false;throw new Error("Connection lost");}
+    return result;
+  });
+  const blob=new Blob(["backup"],{type:"application/json"}),name="Kairo-Ride-2.0.8-retry.json";
+  await assert.rejects(()=>client.saveExport(ns,blob,name),/Connection lost/);
+  const id=await client.saveExport(ns,blob,name);
+  assert.ok(remote.files.has(id));assert.equal([...remote.files.values()].filter(f=>f.appProperties?.kind==="export").length,1);
+});
+test("v208 multi-chunk exports follow the confirmed byte ranges",async()=>{
+  const permissionId="990000000210",ns=`google:${permissionId}`,remote=memoryDrive(permissionId),client=new DriveClient("test-token",Date.now()+3600000,remote.fetcher);
+  const bytes=new Uint8Array(8*1024*1024+513);bytes[0]=80;bytes[bytes.length-1]=75;
+  const id=await client.saveExport(ns,new Blob([bytes],{type:"application/octet-stream"}),"Kairo-Ride-2.0.8-large.xlsx");
+  assert.deepEqual(remote.files.get(id).content,bytes);
+  assert.equal(remote.requests.filter(r=>r.method==="PUT").length,2);
+});
+test("v208 exports refuse an account mismatch before creating folders or files",async()=>{
+  const permissionId="990000000211",remote=memoryDrive(permissionId),client=new DriveClient("test-token",Date.now()+3600000,remote.fetcher);
+  await assert.rejects(()=>client.saveExport("google:wrong-account",new Blob(["a"]),"Kairo-Ride-2.0.8.json"),/account changed/);
+  assert.equal(remote.files.size,0);
+});
+test("v208 exports stop on expired access and reject non-Google upload locations",async()=>{
+  const expired=new DriveClient("test-token",Date.now()+3600000,async()=>new Response(null,{status:401}));
+  await assert.rejects(()=>expired.saveExport("google:account",new Blob(["a"]),"Kairo-Ride-2.0.8.json"),/expired/);assert.equal(expired.connected,false);
+  const permissionId="990000000212",remote=memoryDrive(permissionId),client=new DriveClient("test-token",Date.now()+3600000,async(url,options)=>{
+    if(new URL(url).searchParams.get("uploadType")==="resumable")return new Response(null,{status:200,headers:{Location:"https://untrusted.invalid/upload"}});
+    return remote.fetcher(url,options);
+  });
+  await assert.rejects(()=>client.saveExport(`google:${permissionId}`,new Blob(["a"]),"Kairo-Ride-2.0.8.json"),/Invalid Google upload/);
 });

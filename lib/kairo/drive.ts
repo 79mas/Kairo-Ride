@@ -74,9 +74,10 @@ export class DriveClient {
   readonly expiresAt:number;
   private controller=new AbortController();
   private folders=new Map<string,DriveFile>();
+  private exportSessions=new Map<string,{id:string;session:string;size:number}>();
   constructor(token:string,expiresAt:number,private fetcher:typeof fetch=globalThis.fetch.bind(globalThis)){this.token=token;this.expiresAt=expiresAt;}
   get connected(){return !!this.token&&!this.controller.signal.aborted&&Date.now()<this.expiresAt-30_000;}
-  disconnect(){this.controller.abort();this.token="";this.folders.clear();}
+  disconnect(){this.controller.abort();this.token="";this.folders.clear();this.exportSessions.clear();}
   assertConnected(){if(!this.connected)throw new DriveError("Refresh Google access. Local changes are safe on this device.",401);}
   private async fetch(url:string,options:RequestInit={},allow:number[]=[]):Promise<Response>{
     this.assertConnected();
@@ -126,6 +127,39 @@ export class DriveClient {
     this.folders.set(key,folder);return folder;
   }
   async root(){return this.folder("root","Kairo Ride");}
+  /** User-requested export, separate from the live database and immutable history. */
+  async saveExport(namespace:string,blob:Blob,name:string):Promise<string>{
+    if((await this.about()).namespace!==namespace)throw new Error("The Google account changed. Reopen export.");
+    if(!blob.size)throw new Error("The export file is empty.");
+    const root=await this.root(),folder=await this.folder("exports","Exports",root.id);
+    const key=namespace+":"+name;
+    const found=await this.list(`${property("kind","export")} and name = '${quoted(name)}' and '${folder.id}' in parents`);
+    if(found.length){this.exportSessions.delete(key);return found[0].id;}
+    let upload=this.exportSessions.get(key),offset=0;
+    if(upload){
+      if(upload.size!==blob.size)throw new Error("The prepared export changed. Reopen export.");
+      const status=await this.fetch(safeSession(upload.session),{method:"PUT",headers:{"Content-Range":`bytes */${blob.size}`},body:new Blob([])},[308,404,410]);
+      if(status.ok){const result=ensureFile(await status.json());if(result.id!==upload.id)throw new Error("Export file ID mismatch.");this.exportSessions.delete(key);return result.id;}
+      if(status.status===308)offset=Number(status.headers.get("Range")?.match(/-(\d+)$/)?.[1]??-1)+1;
+      else{this.exportSessions.delete(key);upload=undefined;}
+    }
+    if(!upload){
+      const id=await this.newId();
+      const response=await this.fetch(`${UPLOAD}/files?uploadType=resumable&fields=id`,{method:"POST",headers:{"Content-Type":"application/json","X-Upload-Content-Type":blob.type,"X-Upload-Content-Length":String(blob.size)},body:JSON.stringify({id,name,mimeType:blob.type,parents:[folder.id],appProperties:{app:APP,kind:"export"}})});
+      const location=response.headers.get("Location");if(!location)throw new Error("Google did not provide an upload session.");
+      upload={id,session:safeSession(location),size:blob.size};this.exportSessions.set(key,upload);
+    }
+    if(!Number.isFinite(offset)||offset<0||offset>=blob.size)throw new Error("Google has not confirmed the export. Try again.");
+    while(offset<blob.size){
+      const end=Math.min(offset+8*1024*1024,blob.size);
+      const response=await this.fetch(upload.session,{method:"PUT",headers:{"Content-Type":blob.type,"Content-Range":`bytes ${offset}-${end-1}/${blob.size}`},body:blob.slice(offset,end)},[308]);
+      if(response.ok){const result=ensureFile(await response.json());if(result.id!==upload.id)throw new Error("Export file ID mismatch.");this.exportSessions.delete(key);return result.id;}
+      const next=Number(response.headers.get("Range")?.match(/-(\d+)$/)?.[1]??-1)+1;
+      if(next<=offset||next>end)throw new Error("Export upload paused. Try again to resume.");
+      offset=next;
+    }
+    throw new Error("Google has not confirmed the export. Try again.");
+  }
   async ownerFolder(kind:"trip"|"ride",id:string,state:State):Promise<DriveFile>{
     const root=await this.root();
     if(kind==="trip"){

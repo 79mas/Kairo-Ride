@@ -1,4 +1,5 @@
 "use client";
+import {formatNumber} from "@/lib/kairo/numbers";
 import {useMemo,useState} from "react";
 import {BarChart3,RotateCcw} from "lucide-react";
 import {Bar,BarChart,Brush,CartesianGrid,Line,LineChart,ResponsiveContainer,Tooltip,XAxis,YAxis} from "recharts";
@@ -15,12 +16,12 @@ import type {ViewActions} from "./views";
 const tooltipStyle={background:"#111217",border:"1px solid #2c2e34",borderRadius:10,color:"#f5f3ef"};
 
 function HistoryChart({data,wheels,kind,title,eyebrow,wide=false}:{data:SeriesPoint[];wheels:Wheel[];kind:"line"|"monthly"|"daily";title:string;eyebrow:string;wide?:boolean}){
-  const {tr,locale,dateFormat}=useI18n(),[zoom,setZoom]=useState<{startIndex:number;endIndex:number}|null>(null);
+  const {tr,dateFormat}=useI18n(),[zoom,setZoom]=useState<{startIndex:number;endIndex:number}|null>(null);
   const startIndex=Math.max(0,Math.min(zoom?.startIndex??0,data.length-1)),endIndex=Math.max(startIndex,Math.min(zoom?.endIndex??data.length-1,data.length-1));
   const domain=fitChartDomain(data.slice(startIndex,endIndex+1),wheels.map(w=>w.id),kind==="line"?"line":"grouped");
   const axisKey="date",Chart=kind==="line"?LineChart:BarChart;
   const dateLabel=(value:string)=>kind==="monthly"?formatMonthKey(value,dateFormat):formatDateKey(value,dateFormat);
-  const numberFormat=new Intl.NumberFormat(locale,{notation:"compact",maximumFractionDigits:1});
+  const numberFormat={format:(value:number)=>formatNumber(value,{notation:"compact",maximumFractionDigits:1})};
   return <section className={`analytics-card panel${wide?" analytics-wide":""}`}>
     <div className="chart-heading"><div><p className="eyebrow">{eyebrow}</p><h2>{title}</h2></div><Button variant="ghost" size="sm" disabled={!zoom} onClick={()=>setZoom(null)} aria-label={`${tr("Reset zoom","Atkurti mastelį")} · ${title}`}><RotateCcw/>{tr("Fit","Sutalpinti")}</Button></div>
     <ResponsiveContainer width="100%" height={wide?360:340}>
@@ -28,7 +29,7 @@ function HistoryChart({data,wheels,kind,title,eyebrow,wide=false}:{data:SeriesPo
         <CartesianGrid stroke="#292b31" vertical={false}/>
         <XAxis dataKey={axisKey} tickFormatter={dateLabel} tick={{fill:"#8e9098",fontSize:10}} minTickGap={24} padding={kind==="line"?{left:8,right:8}:undefined}/>
         <YAxis domain={domain} allowDataOverflow width={46} tickCount={5} tick={{fill:"#8e9098",fontSize:10}} tickFormatter={value=>numberFormat.format(value)}/>
-        <Tooltip contentStyle={tooltipStyle} labelFormatter={label=>dateLabel(String(label))}
+        <Tooltip formatter={value=>formatNumber(Number(value))} contentStyle={tooltipStyle} labelFormatter={label=>dateLabel(String(label))}
           cursor={kind==="line"?{stroke:"rgba(255,255,255,.12)",strokeDasharray:"3 4"}:{fill:"rgba(255,255,255,.035)"}}/>
         {wheels.map(wheel=>kind==="line"?<Line key={wheel.id} type="monotone" dataKey={wheel.id} name={wheel.name} stroke={wheel.color} strokeWidth={2.5} dot={endIndex===startIndex} activeDot={{r:4,stroke:"#202126",strokeWidth:2}} connectNulls isAnimationActive={false}/>:<Bar key={wheel.id} dataKey={wheel.id} name={wheel.name} fill={wheel.color} radius={[2,2,0,0]} activeBar={{fillOpacity:.9,stroke:"rgba(255,255,255,.14)"}} isAnimationActive={false}/>)}
         {data.length>1&&<Brush dataKey={axisKey} tickFormatter={dateLabel} height={24} stroke="#696b74" fill="#16171c" travellerWidth={12} gap={1} startIndex={startIndex} endIndex={endIndex} onChange={range=>{if(range.startIndex!==undefined&&range.endIndex!==undefined)setZoom({startIndex:range.startIndex,endIndex:range.endIndex});}}/>}

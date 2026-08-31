@@ -98,7 +98,7 @@ test("maintenance popup contains the wheel, actual tasks, deadline and odometer 
   const html=renderToStaticMarkup(React.createElement(VehicleReminderList,{reminders,...copy}));
   assert.match(html,/Lynx-S/);assert.match(html,/Stop if you hear unusual noise/);
   assert.match(html,/Inspect bearings &lt;script&gt;/);assert.doesNotMatch(html,/<script>/);
-  assert.match(html,/Due:/);assert.match(html,/Odometer: 1,346 km/);
+  assert.match(html,/Due:/);assert.match(html,/Odometer: 1\s346 km/);
   const flagged={...wheel,status:"attention",statusNote:"Inspect tire"};
   assert.match(renderToStaticMarkup(React.createElement(VehicleStatusBadge,{wheel:flagged,state:fixture([flagged])})),/>Active!</);
 });
