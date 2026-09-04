@@ -83,7 +83,16 @@ export class DriveClient {
     this.assertConnected();
     const parsed=new URL(url);
     if(parsed.origin!=="https://www.googleapis.com"||!/^\/(upload\/)?drive\/v3\//.test(parsed.pathname))throw new Error("An invalid Drive API address was blocked.");
-    const response=await this.fetcher(url,{...options,headers:{...Object.fromEntries(new Headers(options.headers).entries()),Authorization:`Bearer ${this.token}`},signal:this.controller.signal,redirect:"error",cache:"no-store"});
+    // Google uses 308 Resume Incomplete as a normal resumable-upload response.
+    // Fetch treats 308 as a redirect status, so redirect:"error" would turn it
+    // into a generic TypeError before the upload code can inspect status 308.
+    // Keep redirects blocked for every other Drive request and only use the
+    // standard Fetch behaviour for calls that explicitly expect status 308.
+    const acceptsResumeIncomplete=allow.includes(308);
+    const response=await this.fetcher(url,{...options,headers:{...Object.fromEntries(new Headers(options.headers).entries()),Authorization:`Bearer ${this.token}`},signal:this.controller.signal,redirect:acceptsResumeIncomplete?"follow":"error",cache:"no-store"});
+    // A genuine Resume Incomplete response has no Location header and is not
+    // followed. Reject any actual redirect instead of accepting another URL.
+    if(acceptsResumeIncomplete&&response.redirected)throw new Error("An unexpected Google upload redirect was blocked.");
     if(!response.ok&&!allow.includes(response.status)){
       if(response.status===401){this.token="";throw new DriveError("Google access expired. Press ‘Refresh access’.",401);}
       if(response.status===403){
