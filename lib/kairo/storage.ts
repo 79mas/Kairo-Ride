@@ -1,22 +1,39 @@
 import { LOCAL_DATABASE, LOCAL_CHANNEL } from "./paths";
-import { canonical, makeOperation, parseOperation, project, validateArchivedAssociations, validateRecordTarget, type Attachment, type Entity, type Kind, type Operation, type Reading, type Ride, type State, type Wheel } from "./domain";
+import { KINDS, canonical, makeOperation, parseOperation, project, validateArchivedAssociations, validateRecordTarget, type Attachment, type Entity, type Kind, type Operation, type Reading, type Ride, type State, type Wheel } from "./domain";
+import {DATA_SCHEMA_VERSION} from "./version";
 
 export type Profile = { namespace: string; email: string; name: string; permissionId: string };
 export type StoredOperation = { key: string; namespace: string; operation: Operation; uploaded: boolean; fileId?: string };
-export type StoredBlob = { key: string; namespace: string; attachmentId: string; blob: Blob; session?: string; fileId?: string };
+export type TransferState = "saved_local"|"queued"|"waiting_access"|"uploading"|"paused"|"retrying"|"uploaded"|"failed";
+export type StoredBlob = {
+  key: string; namespace: string; attachmentId: string; blob: Blob; session?: string; fileId?: string;
+  transferState?: TransferState; queued?: boolean; confirmedBytes?: number; attempts?: number;
+  lastError?: string; pauseReason?: string; updatedAt?: string;
+};
 export type Workspace = { state: State; operations: Operation[]; pending: StoredOperation[]; blobs: StoredBlob[] };
+export type RecoverySnapshot = {key:string;namespace:string;createdAt:string;reason:string;schemaVersion:number;operations:Operation[]};
+export type StoredDiagnostic = {key:string;namespace:string;createdAt:string;level:string;code:string;[key:string]:unknown};
+export const LOCAL_DATABASE_VERSION=2;
 let opening: Promise<IDBDatabase> | undefined;
 function request<T>(r: IDBRequest<T>): Promise<T> { return new Promise((resolve,reject) => { r.onsuccess = () => resolve(r.result); r.onerror = () => reject(r.error); }); }
 function complete(tx: IDBTransaction) { return new Promise<void>((resolve,reject) => { tx.oncomplete=()=>resolve(); tx.onabort=()=>reject(tx.error ?? new Error("Storage transaction was cancelled.")); tx.onerror=()=>reject(tx.error); }); }
 function database(): Promise<IDBDatabase> {
   if (!opening) opening = new Promise((resolve,reject) => {
-    const req = indexedDB.open(LOCAL_DATABASE, 1);
+    const req = indexedDB.open(LOCAL_DATABASE, LOCAL_DATABASE_VERSION);
     req.onupgradeneeded = () => {
       for (const name of ["operations", "blobs"]) {
-        const store = req.result.createObjectStore(name, {keyPath:"key"});
-        store.createIndex("namespace", "namespace", {unique:false});
+        if(!req.result.objectStoreNames.contains(name)){
+          const store = req.result.createObjectStore(name, {keyPath:"key"});
+          store.createIndex("namespace", "namespace", {unique:false});
+        }
       }
-      req.result.createObjectStore("meta");
+      if(!req.result.objectStoreNames.contains("meta"))req.result.createObjectStore("meta");
+      for(const name of ["diagnostics","snapshots"]){
+        if(!req.result.objectStoreNames.contains(name)){
+          const store=req.result.createObjectStore(name,{keyPath:"key"});
+          store.createIndex("namespace","namespace",{unique:false});
+        }
+      }
     };
     req.onsuccess=()=> { const db = req.result; db.onversionchange=()=> {db.close();opening=undefined;}; resolve(db); };
     req.onerror=()=> {opening=undefined;reject(req.error);};
@@ -30,6 +47,7 @@ function announce(namespace: string) {
 }
 export async function metaGet<T>(key: string): Promise<T | undefined> { const db=await database(); return request(db.transaction("meta").objectStore("meta").get(key)); }
 export async function metaSet(key: string, value: unknown) { const db=await database(); const tx=db.transaction("meta","readwrite"); const done=complete(tx); tx.objectStore("meta").put(value,key); await done; }
+export async function metaDelete(key:string){const db=await database();const tx=db.transaction("meta","readwrite"),done=complete(tx);tx.objectStore("meta").delete(key);await done;}
 export async function deviceId() { let value=await metaGet<string>("deviceId"); if (!value) {value=crypto.randomUUID();await metaSet("deviceId",value);} return value; }
 export async function loadWorkspace(namespace: string): Promise<Workspace> {
   const db=await database();
@@ -70,7 +88,7 @@ export async function storeOperation(namespace: string, operation: Operation, bl
       }
     }
     tx.objectStore("operations").add({key:keyFor(namespace,operation.id),namespace,operation,uploaded:false} satisfies StoredOperation);
-    for(const file of blob?(Array.isArray(blob)?blob:[blob]):[]) tx.objectStore("blobs").put({key:keyFor(namespace,file.attachmentId),namespace,...file} satisfies StoredBlob);
+    for(const file of blob?(Array.isArray(blob)?blob:[blob]):[]) tx.objectStore("blobs").put({key:keyFor(namespace,file.attachmentId),namespace,...file,transferState:"queued",queued:true,confirmedBytes:0,attempts:0,updatedAt:new Date().toISOString()} satisfies StoredBlob);
   } catch (error) {tx.abort();await done.catch(()=>{});throw error;}
   await done; announce(namespace);
 }
@@ -110,12 +128,19 @@ export async function patchOperation(namespace: string, operationId: string, pat
   if(current) store.put({...current,...patch});
   await done;
 }
-export async function patchBlob(namespace: string, attachmentId: string, patch: {session?: string; fileId?: string}) {
+export async function patchBlob(namespace: string, attachmentId: string, patch: Partial<Pick<StoredBlob,"session"|"fileId"|"transferState"|"queued"|"confirmedBytes"|"attempts"|"lastError"|"pauseReason"|"updatedAt">>) {
   const db=await database();const tx=db.transaction("blobs","readwrite");const done=complete(tx);const store=tx.objectStore("blobs");
   const current=await request<StoredBlob|undefined>(store.get(keyFor(namespace,attachmentId)));
-  if(current) store.put({...current,...patch});
-  await done;
+  if(current) store.put({...current,...patch,updatedAt:patch.updatedAt??new Date().toISOString()});
+  await done;announce(namespace);
 }
+export async function storedBlob(namespace:string,attachmentId:string){const db=await database();return request<StoredBlob|undefined>(db.transaction("blobs").objectStore("blobs").get(keyFor(namespace,attachmentId)));}
+export async function setTransferQueued(namespace:string,attachmentId:string,queued:boolean,reason?:string){
+  await patchBlob(namespace,attachmentId,{queued,transferState:queued?"queued":"paused",pauseReason:queued?undefined:(reason??"Removed from automatic upload queue"),lastError:undefined});
+}
+export async function pauseTransfer(namespace:string,attachmentId:string){await patchBlob(namespace,attachmentId,{queued:false,transferState:"paused",pauseReason:"Paused by user"});}
+export async function retryTransfer(namespace:string,attachmentId:string){await patchBlob(namespace,attachmentId,{queued:true,transferState:"queued",lastError:undefined,pauseReason:undefined});}
+export async function removeTransferFromQueue(namespace:string,attachmentId:string){await patchBlob(namespace,attachmentId,{queued:false,transferState:"saved_local",lastError:undefined,pauseReason:"Kept on this device only"});}
 export async function copyLocalToAccount(profile: Profile) {
   const local=await loadWorkspace("local");
   const db=await database();const tx=db.transaction(["operations","blobs"],"readwrite");const done=complete(tx);
@@ -127,7 +152,7 @@ export async function copyLocalToAccount(profile: Profile) {
     project([...current.map(r=>r.operation),...local.operations]);
     const known=new Set(current.map(r=>r.operation.id)),knownBlobs=new Set(blobs.map(b=>b.attachmentId));
     for(const operation of local.operations)if(!known.has(operation.id))tx.objectStore("operations").add({key:keyFor(profile.namespace,operation.id),namespace:profile.namespace,operation,uploaded:false} satisfies StoredOperation);
-    for(const b of local.blobs)if(!knownBlobs.has(b.attachmentId))tx.objectStore("blobs").put({key:keyFor(profile.namespace,b.attachmentId),namespace:profile.namespace,attachmentId:b.attachmentId,blob:b.blob} satisfies StoredBlob);
+    for(const b of local.blobs)if(!knownBlobs.has(b.attachmentId))tx.objectStore("blobs").put({key:keyFor(profile.namespace,b.attachmentId),namespace:profile.namespace,attachmentId:b.attachmentId,blob:b.blob,transferState:"queued",queued:true,confirmedBytes:0,attempts:0,updatedAt:new Date().toISOString()} satisfies StoredBlob);
   }catch(e){tx.abort();await done.catch(()=>{});throw e;}
   await done;
   announce(profile.namespace);
@@ -144,4 +169,60 @@ export function friendlyError(error: unknown) {
   if(error instanceof DOMException && error.name === "QuotaExceededError") return "Device storage is full. This change was not saved. Export a backup and free some space.";
   if(error instanceof Error) return error.message;
   return "The action failed. Your earlier records were not changed.";
+}
+
+/** A compact operation-only checkpoint. Original blobs stay in their own store
+ * and are never deleted by snapshot restore. */
+export async function createRecoverySnapshot(namespace:string,reason:string,operations?:Operation[]):Promise<RecoverySnapshot>{
+  const history=(operations??(await loadWorkspace(namespace)).operations).map(parseOperation);
+  project(history);
+  const createdAt=new Date().toISOString(),snapshot:RecoverySnapshot={key:`${namespace}|${createdAt}|${crypto.randomUUID()}`,namespace,createdAt,reason:reason.slice(0,160),schemaVersion:DATA_SCHEMA_VERSION,operations:history};
+  const db=await database(),tx=db.transaction("snapshots","readwrite"),done=complete(tx),store=tx.objectStore("snapshots");
+  const existing=await request<RecoverySnapshot[]>(store.index("namespace").getAll(namespace));
+  store.put(snapshot);
+  for(const old of existing.sort((a,b)=>b.createdAt.localeCompare(a.createdAt)).slice(4))store.delete(old.key);
+  await done;return snapshot;
+}
+export async function listRecoverySnapshots(namespace:string):Promise<RecoverySnapshot[]>{
+  const db=await database(),rows=await request<RecoverySnapshot[]>(db.transaction("snapshots").objectStore("snapshots").index("namespace").getAll(namespace));
+  return rows.sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
+}
+export async function restoreRecoverySnapshot(snapshot:RecoverySnapshot):Promise<void>{
+  const history=snapshot.operations.map(parseOperation),target=project(history),current=await loadWorkspace(snapshot.namespace);
+  const changes:{kind:Kind;entityId:string;value:Entity|null}[]=[];
+  for(const kind of KINDS){
+    const wanted=new Map(target[kind].map(entity=>[entity.id,entity as Entity])),present=new Map(current.state[kind].map(entity=>[entity.id,entity as Entity]));
+    for(const id of new Set([...wanted.keys(),...present.keys()])){
+      const before=present.get(id),after=wanted.get(id)??null;
+      if((before?canonical(before):null)!==(after?canonical(after):null))changes.push({kind,entityId:id,value:after});
+    }
+  }
+  if(!changes.length)return;
+  // A recovery is a new immutable revision. Cloud history therefore cannot
+  // silently reapply the state the user just restored on the next sync.
+  const operation=makeOperation(current.state,await deviceId(),changes),restored=project([...current.operations,operation]);
+  if(restored.integrity.length)throw new Error("The recovery point would create incomplete record history.");
+  await mergeOperations(snapshot.namespace,[operation],false);
+}
+
+export async function appendDiagnostic(row:StoredDiagnostic):Promise<void>{
+  const db=await database(),tx=db.transaction("diagnostics","readwrite"),done=complete(tx),store=tx.objectStore("diagnostics");
+  const existing=await request<StoredDiagnostic[]>(store.index("namespace").getAll(row.namespace));store.put(row);
+  for(const old of existing.sort((a,b)=>b.createdAt.localeCompare(a.createdAt)).slice(199))store.delete(old.key);
+  await done;
+}
+export async function listDiagnostics(namespace:string,limit=200):Promise<StoredDiagnostic[]>{
+  const db=await database(),rows=await request<StoredDiagnostic[]>(db.transaction("diagnostics").objectStore("diagnostics").index("namespace").getAll(namespace));
+  return rows.sort((a,b)=>b.createdAt.localeCompare(a.createdAt)).slice(0,Math.max(1,Math.min(200,limit)));
+}
+export async function clearDiagnostics(namespace:string):Promise<void>{
+  const db=await database(),tx=db.transaction("diagnostics","readwrite"),done=complete(tx),store=tx.objectStore("diagnostics"),keys=await request<IDBValidKey[]>(store.index("namespace").getAllKeys(namespace));
+  keys.forEach(key=>store.delete(key));await done;
+}
+export async function storageSelfCheck(namespace:string){
+  const probe=`self-check:${crypto.randomUUID()}`,started=performance.now();await metaSet(probe,{namespace,at:new Date().toISOString()});
+  const value=await metaGet<{namespace:string}>(probe);await metaDelete(probe);
+  if(value?.namespace!==namespace)throw new Error("Local database read/write verification failed.");
+  const workspace=await loadWorkspace(namespace),snapshots=await listRecoverySnapshots(namespace);
+  return {databaseVersion:LOCAL_DATABASE_VERSION,dataSchemaVersion:DATA_SCHEMA_VERSION,operations:workspace.operations.length,blobs:workspace.blobs.length,pending:workspace.pending.length,conflicts:workspace.state.conflicts.length,integrity:workspace.state.integrity.length,recoverySnapshots:snapshots.length,durationMs:Math.round(performance.now()-started)};
 }

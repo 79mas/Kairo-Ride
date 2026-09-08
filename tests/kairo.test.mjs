@@ -237,6 +237,10 @@ test("default Drive fetch keeps the browser global receiver",async()=>{
   try{const client=new DriveClient("test-token",Date.now()+3600000);assert.equal((await client.about()).email,"test@example.invalid");assert.equal(receiver,true);}
   finally{globalThis.fetch=original;}
 });
+test("v209 Drive turns a browser Failed to fetch into a useful retryable error",async()=>{
+  const client=new DriveClient("test-token",Date.now()+3600000,async()=>{throw new TypeError("Failed to fetch");});
+  await assert.rejects(()=>client.about(),error=>error.status===0&&/Could not reach Google Drive/.test(error.message)&&/remain on this device/.test(error.message));
+});
 test("disconnect aborts in-flight requests and prevents future uploads",async()=>{
   let signal;const client=new DriveClient("test-token",Date.now()+3600000,async(_url,options)=>{signal=options.signal;return new Promise((_,reject)=>signal.addEventListener("abort",()=>reject(new DOMException("Aborted","AbortError"))));});
   const pending=client.about();client.disconnect();await assert.rejects(()=>pending);assert.equal(signal.aborted,true);await assert.rejects(()=>client.about());
@@ -257,13 +261,14 @@ test("unsafe resumable session URLs never receive a bearer token",async()=>{
 test("resumable upload continues at the server-confirmed offset",async()=>{
   const ns=`resume-${crypto.randomUUID()}`,size=8*1024*1024+7,blob=new Blob([new Uint8Array(size)]),a={id:"attached-resume",ownerKind:"trip",ownerId:trip.id,name:"video.mp4",mimeType:"video/mp4",size,addedAt:new Date().toISOString()};
   await db.storeOperation(ns,d.makeOperation(d.project([]),"device-a",[change("attachment",a)]),{attachmentId:a.id,blob});
-  const ranges=[];let requests=0;
+  const ranges=[],redirects=[];let requests=0;
   const client=new DriveClient("test-token",Date.now()+3600000,async(_url,options)=>{
-    requests++;ranges.push(new Headers(options.headers).get("Content-Range"));
+    requests++;ranges.push(new Headers(options.headers).get("Content-Range"));redirects.push(options.redirect);
     return requests===1?new Response(null,{status:308,headers:{Range:`bytes=0-${8*1024*1024-1}`}}):Response.json({id:"file-resume-001"});
   });
   const id=await client.uploadAttachment(ns,a,{key:"k",namespace:ns,attachmentId:a.id,blob,fileId:"file-resume-001",session:"https://www.googleapis.com/upload/drive/v3/files?upload_id=test"},"parent00001",()=>{});
   assert.equal(id,"file-resume-001");assert.deepEqual(ranges,[`bytes */${size}`,`bytes ${8*1024*1024}-${size-1}/${size}`]);
+  assert.deepEqual(redirects,["follow","follow"],"308-aware upload calls must expose Resume Incomplete instead of becoming Failed to fetch");
 });
 test("a lost event-upload acknowledgement retries with the reserved file ID",async()=>{
   const ns=`retry-${crypto.randomUUID()}`,op=first();await db.storeOperation(ns,op);let created=false;let attempts=0;
@@ -340,6 +345,25 @@ test("complete Drive protocol stores a trip original and reconstructs an indepen
   const originalCount=remote.files.size,writes=()=>remote.requests.filter(request=>request.method!=="GET").length,before=writes();
   await client.sync(ns,()=>{});assert.equal(remote.files.size,originalCount);assert.equal(writes(),before,"unchanged polling must not rewrite the database snapshot");
   const requestCount=remote.requests.length;await client.sync(ns,()=>{});assert.equal(remote.requests.length-requestCount,5,"steady poll also checks editable database controls, not every attachment folder");
+});
+
+test("v209 a bad original file cannot block its ride and trip records from synchronizing",async()=>{
+  const permissionId="9900000002099",ns=`google:${permissionId}`,remote=memoryDrive(permissionId);let rejectOriginal=true;
+  const client=new DriveClient("test-token",Date.now()+3600000,async(url,options)=>{
+    if(rejectOriginal&&options?.method==="PUT"&&new URL(url).searchParams.has("upload_id"))return new Response(null,{status:400});
+    return remote.fetcher(url,options);
+  });
+  const original=new Blob(["safe local bytes"]),attachment={id:"file-v209",ownerKind:"trip",ownerId:trip.id,name:"route-v209.gpx",mimeType:"application/gpx+xml",size:original.size,addedAt:new Date().toISOString()};
+  const record=reading("ride-v209","02",142),rideRecord={...ride(record.id,trip.id,null),at:record.at};
+  const operation=d.makeOperation(d.project([]),"device-v209",[change("wheel",wheel),change("trip",trip),change("reading",record),change("ride",rideRecord),change("attachment",attachment)]);
+  await db.storeOperation(ns,operation,{attachmentId:attachment.id,blob:original});
+  const partial=await client.sync(ns,()=>{});
+  assert.equal(partial.pending,0);assert.equal(partial.fileIssues.length,1);assert.equal(partial.fileIssues[0].name,attachment.name);
+  const local=await db.loadWorkspace(ns);assert.equal(local.pending.length,0);assert.equal(local.state.attachment[0].driveId,undefined);assert.equal(await local.blobs[0].blob.text(),"safe local bytes");
+  const replica=`v209-replica-${crypto.randomUUID()}`;await client.pull(replica,()=>{});
+  const restored=(await db.loadWorkspace(replica)).state;assert.equal(restored.trip[0].id,trip.id);assert.equal(restored.ride[0].id,rideRecord.id);assert.equal(restored.attachment[0].driveId,undefined);
+  rejectOriginal=false;const recovered=await client.sync(ns,()=>{});
+  assert.equal(recovered.fileIssues.length,0);assert.equal(recovered.pending,0);assert.ok((await db.loadWorkspace(ns)).state.attachment[0].driveId);
 });
 
 test("a sync with no local changes pulls another device's edit and preserves a later conflict",async()=>{

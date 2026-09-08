@@ -34,6 +34,9 @@ export const wheelSchema = z.object({
 export const readingSchema = z.object({
   id, archived, wheelId: id, at: instant, odometerKm: km, notes: text,
   sourceOrder: z.number().int().nonnegative().optional(),
+  // A decrease/reset is never accepted silently. The reason is immutable
+  // history and lets calculations skip only the unknown interval.
+  odometerExceptionReason: z.string().trim().min(3).max(1000).optional(),
 }).strict();
 export const tripSchema = z.object({
   id, archived, name, startDate: day, endDate: day, notes: text,
@@ -41,6 +44,9 @@ export const tripSchema = z.object({
 export const rideSchema = z.object({
   id, archived, name: z.string().trim().max(160), wheelId: id, tripId: id.nullable(), at: instant,
   distanceKm: km.nullable(), notes: text, localDate: day.optional(), timeZone: timeZone.optional(),
+  // Optional because legacy odometer records do not contain riding time. When
+  // present, weighted average speed can be calculated without inventing data.
+  durationMinutes: z.number().int().positive().max(10_000_000).optional(),
 }).strict();
 export const goalSchema = z.object({
   id, archived, name: z.string().trim().max(160).optional(), period: z.enum(["week","month","year","all","custom"]).optional(), startDate: day.optional(), endDate: day.optional(),
@@ -209,23 +215,25 @@ export function compareReadings(a: Reading, b: Reading) {
   return Date.parse(a.at) - Date.parse(b.at) || (a.sourceOrder ?? 0) - (b.sourceOrder ?? 0) || a.id.localeCompare(b.id, "en");
 }
 export const roundKm = (n: number) => Math.round((n + Number.EPSILON) * 1000) / 1000;
-export type ReadingInterval = { reading: Reading; from: number; distance: number | null; warning: string | null };
+export type ReadingInterval = { reading: Reading; from: number; distance: number | null; warning: string | null; acknowledged: boolean };
 export function wheelStats(wheel: Wheel, readings: Reading[]) {
   const ordered = readings.filter(r => !r.archived && r.wheelId === wheel.id).sort(compareReadings);
   const times = new Map<string, number>();
   ordered.forEach(r => {const key=String(Date.parse(r.at));times.set(key, (times.get(key) ?? 0) + 1);});
-  let previous = wheel.baselineKm;
+  let previous = wheel.baselineKm,previousReading:Reading|undefined;
   const intervals: ReadingInterval[] = ordered.map(reading => {
     const from = previous;
     const diff = roundKm(reading.odometerKm - from);
+    const acknowledged=diff<0&&!!(reading.odometerExceptionReason?.trim()||previousReading?.odometerExceptionReason?.trim());
     previous = reading.odometerKm;
-    const warning = diff < 0 ? "The odometer decreased. Check the record or its date." : (times.get(String(Date.parse(reading.at))) ?? 0) > 1 ? "Multiple records have the same time. Adjust the time." : null;
-    return { reading, from, distance: diff < 0 ? null : diff, warning };
+    previousReading=reading;
+    const warning = diff < 0 ? (acknowledged?"The odometer decrease/reset was acknowledged; this unknown interval is excluded.":"The odometer decreased. Check the record or its date and confirm a reason if intentional.") : (times.get(String(Date.parse(reading.at))) ?? 0) > 1 ? "Multiple records have the same time. Adjust the time." : null;
+    return { reading, from, distance: diff < 0 ? null : diff, warning,acknowledged };
   });
-  const invalid = intervals.some(i => i.distance === null);
+  const invalid = intervals.some(i => i.distance === null&&!i.acknowledged);
   return {
     odometerKm: ordered.at(-1)?.odometerKm ?? wheel.baselineKm,
-    trackedKm: invalid ? null : roundKm((ordered.at(-1)?.odometerKm ?? wheel.baselineKm) - wheel.baselineKm),
+    trackedKm: invalid ? null : roundKm(intervals.reduce((sum,item)=>sum+(item.distance??0),0)),
     lastAt: ordered.at(-1)?.at, intervals,
     warnings: intervals.filter(i => i.warning).length,
   };

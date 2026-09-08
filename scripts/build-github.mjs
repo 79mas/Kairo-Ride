@@ -1,4 +1,4 @@
-import {readFile,rm,writeFile} from "node:fs/promises";
+import {mkdir,readFile,readdir,rename,rm,writeFile} from "node:fs/promises";
 import {spawn} from "node:child_process";
 import {fileURLToPath} from "node:url";
 import {loadEnv} from "vite";
@@ -28,7 +28,14 @@ try {
     child.once("error",reject);child.once("exit",(code,signal)=>resolve(code??(signal?1:0)));
   });
   process.exitCode=code;
-  if(code===0)await writeFile(new URL("../dist/client/.nojekyll",import.meta.url),"");
+  if(code===0){
+    await writeFile(new URL("../dist/client/.nojekyll",import.meta.url),"");
+    // Hidden source maps are retained beside the deploy output for matching a
+    // diagnostic build ID, but are never published by the Pages workflow.
+    const sourceDir=new URL("../dist/client/assets/",import.meta.url),artifactDir=new URL("../build-artifacts/sourcemaps/",import.meta.url);
+    await rm(artifactDir,{recursive:true,force:true});await mkdir(artifactDir,{recursive:true});
+    for(const name of await readdir(sourceDir))if(name.endsWith(".map"))await rename(new URL(name,sourceDir),new URL(name,artifactDir));
+  }
 } finally {
   // A CI variable must not dirty source files or accidentally enter a later commit.
   await writeFile(configPath,original);

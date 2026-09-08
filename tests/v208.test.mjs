@@ -38,7 +38,7 @@ test("Number preference persists under the app path and invalid preferences reco
   }finally{if(old)Object.defineProperty(globalThis,"localStorage",old);else delete globalThis.localStorage;}
 });
 test("Both export filenames include the current patch version and a sortable timestamp",()=>{
-  for(const extension of ["json","xlsx"])assert.equal(exportName(extension,new Date("2026-08-31T12:34:56.123Z")),`Kairo-Ride-2.0.8-2026-08-31T12-34-56-123Z.${extension}`);
+  for(const extension of ["json","xlsx"])assert.equal(exportName(extension,new Date("2026-08-31T12:34:56.123Z")),`Kairo-Ride-2.0.9.1-2026-08-31T12-34-56-123Z.${extension}`);
 });
 test("Preparing files is read-only; cancelling leaves no database entries or blobs",async()=>{
   const ns=namespace(),before=await db.loadWorkspace(ns);

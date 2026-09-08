@@ -64,5 +64,5 @@ export class AutoSyncScheduler {
 /** Only retry network failures, throttling and server errors automatically. */
 export function syncFailureKind(error:unknown):"retry"|"blocked"{
   const status=typeof error==="object"&&error!==null&&"status"in error?Number(error.status):NaN;
-  return error instanceof TypeError||status===408||status===429||status>=500?"retry":"blocked";
+  return error instanceof TypeError||status===0||status===408||status===429||status>=500?"retry":"blocked";
 }

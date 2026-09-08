@@ -2,6 +2,7 @@ import { KINDS, gearCategoryLabels, gearStatusLabels, maintenanceCategoryLabels,
 import {templateForMaintenance} from "./maintenance";
 import {storedWheelStatus, wheelStatusLabels} from "./domain";
 import {effectiveWheelStatus} from "./vehicle-status";
+import {rideEntries} from "./stats";
 
 type Cell = string | number | boolean | null;
 export type Workbook = Record<string, Cell[][]>;
@@ -182,11 +183,12 @@ export async function workbookImport(book:Workbook, timeZone:string):Promise<Imp
 
 export function exportWorkbook(operations:Operation[]):Workbook{
   const s=project(operations);const names=new Map(s.wheel.map(w=>[w.id,w.name]));const trips=new Map(s.trip.map(t=>[t.id,t.name]));const gearNames=new Map(s.gear.map(g=>[g.id,g.name]));
+  const effectiveRides=new Map(rideEntries(s).flatMap(entry=>entry.ride?[[entry.ride.id,entry] as const]:[]));
   return {
     KairoInfo:[["Format","Note"],["kairo-ride-v1","Odometer intervals and manually entered ride distances are never added together."],["Recovery","History is the exact recovery source; editing the other sheets does not change History."],["Attachments","Original files are not embedded in Excel. Drive links work for the owner."],["Time","ISO dates ending in Z are UTC. Baseline and trip dates are calendar dates."],["History","Use JSON for very large histories; an Excel cell is limited to 32767 characters."]],
     Wheels:[["ID","Name","Baseline km","Baseline date","Color","Notes","Status","Saved status","Maintenance reminder"],...s.wheel.map(w=>[w.id,w.name,w.baselineKm,w.baselineDate,w.color,w.notes,wheelStatusLabels[effectiveWheelStatus(w,s)],wheelStatusLabels[storedWheelStatus(w)],w.statusNote??""])],
     Records:[["ID","Wheel ID","Wheel","At (UTC)","Odometer km","Notes"],...s.reading.map(r=>[r.id,r.wheelId,names.get(r.wheelId)??"",r.at,r.odometerKm,r.notes])],
-    Rides:[["ID","Name","Wheel ID","Wheel","At (UTC)","Distance km","Trip ID","Trip","Notes","Local date","Time zone"],...s.ride.map(r=>[r.id,r.name,r.wheelId,names.get(r.wheelId)??"",r.at,r.distanceKm,r.tripId,trips.get(r.tripId??"")??"",r.notes,r.localDate??"",r.timeZone??""])],
+    Rides:[["ID","Name","Wheel ID","Wheel","At (UTC)","Distance km","Trip ID","Trip","Notes","Local date","Time zone","Time on wheel (min)","Average speed km/h"],...s.ride.map(r=>{const distance=effectiveRides.get(r.id)?.distanceKm??r.distanceKm,average=r.durationMinutes&&distance!==null?distance/(r.durationMinutes/60):null;return [r.id,r.name,r.wheelId,names.get(r.wheelId)??"",r.at,distance,r.tripId,trips.get(r.tripId??"")??"",r.notes,r.localDate??"",r.timeZone??"",r.durationMinutes??null,average];})],
     Trips:[["ID","Name","Start date","End date","Notes"],...s.trip.map(t=>[t.id,t.name,t.startDate,t.endDate,t.notes])],
     Gear:[["ID","Name","Category","Status","Brand","Model","Size","Purchased on","Used with IDs","Used with","Notes"],...s.gear.map(g=>[g.id,g.name,gearCategoryLabels[g.category],gearStatusLabels[g.status],g.brand,g.model,g.size,g.purchasedOn,(g.usedWithGearIds??[]).join(", "),(g.usedWithGearIds??[]).map(id=>gearNames.get(id)??id).join(", "),g.notes])],
     Maintenance:[["ID","Task","Category","Target kind","Target ID","Target","Due date","Due odometer km","Remind days before","Repeat km","Repeat months","Completed (UTC)","Notes","Template ID","Template","Repeat days","Date reminder enabled","Mileage reminder enabled"],...s.maintenance.map(m=>[m.id,m.title,maintenanceCategoryLabels[m.category],m.targetKind,m.targetId,m.targetKind==="wheel"?names.get(m.targetId)??m.targetId:gearNames.get(m.targetId)??m.targetId,m.dueDate,m.dueOdometerKm,m.remindDaysBefore,m.repeatKm,m.repeatMonths,m.completedAt,m.notes,m.templateId??"",m.templateId?templateForMaintenance(m).title.en:"",m.repeatDays??null,!!m.dueDate,m.dueOdometerKm!==null])],

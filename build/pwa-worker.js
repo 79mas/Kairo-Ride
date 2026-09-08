@@ -1,6 +1,8 @@
 /* Browser worker template. The build inserts immutable asset URLs and a content hash. */
 const PREFIX="kairo-ride-shell-__SCOPE_ID__-";
 const CACHE=PREFIX+"__BUILD_ID__";
+const BUILD_ID="__BUILD_ID__";
+const APP_VERSION="__APP_VERSION__";
 const BASE="__BASE_PATH__";
 const HOME=BASE+"/";
 const PRECACHE="__PRECACHE__";
@@ -12,21 +14,25 @@ self.addEventListener("install",event=>{
       if(!response.ok||response.redirected)throw new Error("Programėlės nepavyko paruošti darbui be interneto.");
       await cache.put(path,response);
     }
-    // No skipWaiting: keep the old application and its cache together until its tabs close.
+    // Updates wait for explicit user approval. A first installation activates
+    // normally because there is no older active worker.
+    for(const client of await self.clients.matchAll({type:"window",includeUncontrolled:true}))client.postMessage({type:"KAIRO_UPDATE_READY",buildId:BUILD_ID,version:APP_VERSION});
   })());
 });
 self.addEventListener("activate",event=>{
   event.waitUntil((async()=>{
     for(const key of await caches.keys())if((key.startsWith(PREFIX)||(!BASE&&/^kairo-ride-shell-[a-f0-9]{16}$/.test(key)))&&key!==CACHE)await caches.delete(key);
     await self.clients.claim();
-    for(const client of await self.clients.matchAll())client.postMessage({type:"KAIRO_OFFLINE_READY"});
+    for(const client of await self.clients.matchAll())client.postMessage({type:"KAIRO_ACTIVE",buildId:BUILD_ID,version:APP_VERSION});
   })());
 });
 self.addEventListener("message",event=>{
   if(event.data?.type==="CHECK_OFFLINE")event.waitUntil((async()=>{
     const cache=await caches.open(CACHE);
-    if(await cache.match(HOME))event.source?.postMessage({type:"KAIRO_OFFLINE_READY"});
+    if(await cache.match(HOME))event.source?.postMessage({type:"KAIRO_OFFLINE_READY",buildId:BUILD_ID,version:APP_VERSION});
   })());
+  if(event.data?.type==="GET_BUILD_INFO")event.source?.postMessage({type:"KAIRO_BUILD_INFO",buildId:BUILD_ID,version:APP_VERSION});
+  if(event.data?.type==="ACTIVATE_UPDATE")event.waitUntil(self.skipWaiting());
 });
 self.addEventListener("notificationclick",event=>{
   event.notification.close();

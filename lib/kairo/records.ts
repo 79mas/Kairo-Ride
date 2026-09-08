@@ -15,18 +15,19 @@ export function preferredRecordVehicle(state: State, namespace: string): Wheel |
   const latest = rideEntries(state).find(entry => eligible.some(wheel => wheel.id === entry.wheelId));
   return eligible.find(wheel => wheel.id === latest?.wheelId) ?? eligible[0];
 }
-export function recordDistancePreview(state: State, wheelId: string, recordId: string, at: string, odometerText: string, sourceOrder?: number) {
+export function recordDistancePreview(state: State, wheelId: string, recordId: string, at: string, odometerText: string, sourceOrder?: number,exceptionReason?:string) {
   const wheel = state.wheel.find(item => item.id === wheelId);
   const odometer = Number(odometerText.trim().replace(",", "."));
   if (!wheel || !odometerText.trim() || !Number.isFinite(odometer) || odometer < 0 || !Number.isFinite(Date.parse(at))) return null;
-  const record: Reading = {id: recordId, wheelId, at: new Date(at).toISOString(), odometerKm: odometer, notes: "", ...(sourceOrder === undefined ? {} : {sourceOrder})};
+  const record: Reading = {id: recordId, wheelId, at: new Date(at).toISOString(), odometerKm: odometer, notes: "", ...(sourceOrder === undefined ? {} : {sourceOrder}),...(exceptionReason?.trim()?{odometerExceptionReason:exceptionReason.trim()}:{})};
   const records = [...state.reading.filter(item => item.id !== recordId), record];
   const result = wheelStats(wheel, records);
   const interval = result.intervals.find(item => item.reading.id === recordId)!;
   const ordered = records.filter(item => item.wheelId === wheelId).sort(compareReadings);
   const index = ordered.findIndex(item => item.id === recordId);
-  return {distanceKm: interval.distance, previousKm: interval.from, previousAt: ordered[index - 1]?.at ?? wheel.baselineDate,
-    warning: interval.warning ?? (result.trackedKm === null ? "This odometer would break the sequence. Check the records before and after this date." : null)};
+  const affected=result.intervals[index]?.distance===null?result.intervals[index]:result.intervals[index+1]?.distance===null?result.intervals[index+1]:undefined;
+  return {distanceKm: interval.distance, previousKm: interval.from, previousAt: ordered[index - 1]?.at ?? wheel.baselineDate,requiresReason:!!affected,
+    warning: affected?.warning??interval.warning ?? (result.trackedKm === null ? "This odometer would break the sequence. Check the records before and after this date." : null)};
 }
 export function recordInstant(input: string, original?: string): string {
   return original && input === localDateTime(original) ? original : new Date(input).toISOString();

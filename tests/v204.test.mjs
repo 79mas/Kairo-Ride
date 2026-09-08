@@ -119,6 +119,6 @@ test("manual sync remains available with automatic sync disabled",async()=>{
   await scheduler.requestNow();await flush();await clock.advance(600000);assert.deepEqual(calls,[true]);assert.equal(clock.pending(),0);
 });
 test("retry classification does not treat invalid access or missing history as a transient failure",()=>{
-  for(const error of [new TypeError("Failed to fetch"),{status:429},{status:503},{status:408}])assert.equal(syncFailureKind(error),"retry");
+  for(const error of [new TypeError("Failed to fetch"),{status:0},{status:429},{status:503},{status:408}])assert.equal(syncFailureKind(error),"retry");
   for(const error of [new Error("History is missing"),{status:401},{status:403},{status:400},new DOMException("Aborted","AbortError")])assert.equal(syncFailureKind(error),"blocked");
 });

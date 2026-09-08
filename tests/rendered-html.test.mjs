@@ -49,7 +49,7 @@ test("manifest and every precached URL resolve inside the actual GitHub project"
 });
 
 test("worker serves the installed app offline and never removes another project's cache",async()=>{
-  const handlers={},stores=new Map();let online=true;
+  const handlers={},stores=new Map();let online=true,skipped=false;
   const caches={keys:async()=>[...stores.keys()],delete:async key=>stores.delete(key),open:async key=>{
     if(!stores.has(key))stores.set(key,new Map());const data=stores.get(key);
     return {put:async(key,response)=>data.set(key,response.clone()),match:async key=>data.get(key)?.clone()};
@@ -58,11 +58,13 @@ test("worker serves the installed app offline and never removes another project'
   const shell=runInNewContext(worker+";({PREFIX,CACHE,HOME,PRECACHE})",{
     URL,Request,Response,caches,
     fetch:async request=>{if(!online)throw new Error("offline");return new Response("cached "+new URL(request.url).pathname);},
-    self:{location:{origin},addEventListener:(name,fn)=>{handlers[name]=fn;},clients:{claim:async()=>{},matchAll:async()=>[]}},
+    self:{location:{origin},addEventListener:(name,fn)=>{handlers[name]=fn;},skipWaiting:async()=>{skipped=true;},clients:{claim:async()=>{},matchAll:async()=>[]}},
   });
   stores.set(shell.PREFIX+"previous-build",new Map());stores.set("kairo-ride-shell-another-project-123",new Map());
   const wait=async name=>{let promise;handlers[name]({waitUntil:p=>{promise=p;}});await promise;};
-  await wait("install");await wait("activate");online=false;
+  await wait("install");assert.equal(skipped,false,"a downloaded update must wait for the user's approval");
+  let activation;handlers.message({data:{type:"ACTIVATE_UPDATE"},waitUntil:p=>{activation=p;}});await activation;assert.equal(skipped,true);
+  await wait("activate");online=false;
   assert.ok(!stores.has(shell.PREFIX+"previous-build"));assert.ok(stores.has("kairo-ride-shell-another-project-123"));
   async function fetchEvent(path,mode="cors",headers=new Headers()){
     let promise;handlers.fetch({request:{url:new URL(path,origin).href,method:"GET",mode,headers},respondWith:p=>{promise=p;}});return promise;

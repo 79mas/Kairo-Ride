@@ -19,7 +19,7 @@ import {DateInput} from "./date-input";
 import {vehicleSelectOptions} from "@/lib/kairo/vehicle-status";
 import type {EntityFormProps} from "./forms";
 
-export function MaintenanceForm({editor,state,busy,onSave,onCancel}:EntityFormProps){
+export function MaintenanceForm({editor,state,busy,onSave,onCancel,onDirtyChange}:EntityFormProps){
   const {tr,language,locale}=useI18n(),original=editor.entity as Maintenance|undefined;
   const [id]=useState(()=>original?.id??uuid());
   const [entryDay]=useState(today);
@@ -44,7 +44,7 @@ export function MaintenanceForm({editor,state,busy,onSave,onCancel}:EntityFormPr
     try{void onSave({value:maintenanceFromDraft(draft,id,original)});}catch(error){toast.error(friendlyError(error));}
   }
   const hasReminder=draft.dateEnabled||draft.mileageEnabled;
-  return <form onSubmit={submit} className="entity-form maintenance-form">
+  return <form onSubmit={submit} onChange={()=>onDirtyChange?.(true)} className="entity-form maintenance-form">
     <Field label={tr("Task type","Užduoties tipas")}>
       <Select value={draft.templateId} onValueChange={selectTemplate}>
         <SelectTrigger aria-label={tr("Maintenance task type","Priežiūros tipas")} className="form-select maintenance-template-select"><SelectValue/></SelectTrigger>

@@ -11,9 +11,9 @@ import {friendlyError} from "@/lib/kairo/storage";
 import {Field} from "./form-fields";
 import {DateInput} from "./date-input";
 import {PendingFiles} from "./pending-files";
-import {FileListView,RideRow,type ViewActions} from "./views";
+import {FileListView,RideRow,type FileTransferView,type ViewActions} from "./views";
 export type TripDraft={value:Trip;changed:boolean;parents:string[];namespace:string;files:File[];removed:Attachment[]};
-export function TripDialog({trip,state,namespace,initialEdit=false,actions,localIds,onDownload,onSave,onClose}:{trip:Trip;state:State;namespace:string;initialEdit?:boolean;actions:ViewActions;localIds:Set<string>;onDownload:(a:Attachment)=>void;onSave:(draft:TripDraft)=>Promise<void>;onClose:()=>void}){
+export function TripDialog({trip,state,namespace,initialEdit=false,actions,localIds,transfers,onDownload,onSave,onClose}:{trip:Trip;state:State;namespace:string;initialEdit?:boolean;actions:ViewActions;localIds:Set<string>;transfers?:Record<string,FileTransferView>;onDownload:(a:Attachment)=>void;onSave:(draft:TripDraft)=>Promise<void>;onClose:()=>void}){
   const {tr,locale}=useI18n(),formId=useId();
   const [initial]=useState(()=>({...trip})),[draft,setDraft]=useState(()=>({...trip})),[parents]=useState(()=>(state.heads.get(entityKey("trip",trip.id))??[]).map(r=>r.operationId));
   const [editing,setEditing]=useState(initialEdit),[files,setFiles]=useState<File[]>([]),[removed,setRemoved]=useState<Attachment[]>([]),[busy,setBusy]=useState(false),[error,setError]=useState("");
@@ -32,11 +32,11 @@ export function TripDialog({trip,state,namespace,initialEdit=false,actions,local
         <Field label={tr("Notes","Pastabos")}><Textarea aria-label={tr("Trip notes","Kelionės pastabos")} value={draft.notes} maxLength={20000} onChange={e=>setDraft({...draft,notes:e.target.value})}/></Field>
       </>}
       </form><section className="detail-section"><div className="section-heading"><h3>{tr("Trip rides","Kelionės važiavimai")}</h3><Button type="button" variant="outline" size="sm" disabled={busy||!state.wheel.length} onClick={()=>navigate(()=>actions.openRide(undefined,undefined,trip.id))}><Plus/>{tr("Add ride","Pridėti važiavimą")}</Button></div>{stats.rides.length?stats.rides.map(ride=><RideRow key={ride.id} ride={ride} state={state} actions={guarded}/>):<p className="field-hint">{tr("No rides linked yet.","Važiavimų dar nėra.")}</p>}</section>
-      <section className="detail-section"><h3>{tr("Trip files","Kelionės failai")}</h3><FileListView files={attachments} localIds={localIds} onDownload={onDownload} editable={editing&&!busy} onDelete={a=>{if(window.confirm(tr("Remove this file link when you save? The original Drive file is kept.","Pašalinti failo ryšį išsaugant? Originalas Drive liks.")))setRemoved([...removed,a]);}}/><PendingFiles files={files} onChange={setFiles} disabled={busy}/></section>
+      <section className="detail-section"><h3>{tr("Trip files","Kelionės failai")}</h3><FileListView files={attachments} localIds={localIds} transfers={transfers} onDownload={onDownload} editable={editing&&!busy} onDelete={a=>{if(window.confirm(tr("Remove this file link when you save? The original Drive file is kept.","Pašalinti failo ryšį išsaugant? Originalas Drive liks.")))setRemoved([...removed,a]);}}/><PendingFiles files={files} onChange={setFiles} disabled={busy}/></section>
       {removed.length>0&&<p className="field-hint">{tr("File links marked for removal:","Pašalinti pažymėti failų ryšiai:")} {removed.length}. <Button type="button" variant="ghost" disabled={busy} onClick={()=>setRemoved([])}>{tr("Undo","Atšaukti pašalinimą")}</Button></p>}
       {editing&&<Button type="button" variant="destructive" disabled={busy} onClick={()=>navigate(()=>actions.askDelete("trip",trip))}><Trash2/>{tr("Delete trip","Pašalinti kelionę")}</Button>}
       {error&&<p role="alert" className="inline-warning">{error}</p>}
-      </div><DialogFooter><Button type="button" variant="outline" disabled={busy} onClick={onClose}>{dirty?tr("Cancel","Atšaukti"):tr("Close","Uždaryti")}</Button><Button type="submit" form={formId} disabled={busy||!dirty}>{busy?tr("Saving…","Išsaugoma…"):tr("Save","Išsaugoti")}</Button></DialogFooter>
+      </div><DialogFooter><Button type="button" variant="outline" disabled={busy} onClick={leave}>{dirty?tr("Cancel","Atšaukti"):tr("Close","Uždaryti")}</Button><Button type="submit" form={formId} disabled={busy||!dirty}>{busy?tr("Saving…","Išsaugoma…"):tr("Save","Išsaugoti")}</Button></DialogFooter>
     </div>
   </DialogContent></Dialog>;
 }

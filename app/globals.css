@@ -427,3 +427,56 @@ details[open]>.vehicle-summary>svg {transform:rotate(180deg)}
 .pending-file>span{flex:1;min-width:0;overflow-wrap:anywhere;font-size:12px}
 .pending-file small{display:block;color:#999ba3}
 @media(max-width:420px){[role=dialog] .form-grid{grid-template-columns:1fr}[role=dialog]{padding:18px 14px}}
+
+/* 2.0.9.1 · resilient transfers, diagnostics and extended analytics */
+.ride-time-fields{border:1px solid #30323a;border-radius:10px;background:#14151a;padding:14px;margin-top:2px}
+.ride-time-fields .field-hint{margin:0 0 12px;color:#9a9ca5;line-height:1.6}
+.ride-time-fields .form-grid{margin-bottom:10px}
+.calculated-speed{display:block;color:#ffc398;font-size:12px;font-variant-numeric:tabular-nums}
+.transfer-center{margin-top:22px}
+.transfer-heading,.diagnostics-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
+.transfer-heading h3,.diagnostics-heading h3{margin-bottom:4px}
+.transfer-heading p,.diagnostics-heading p{color:#999ba3;font-size:12px;line-height:1.6}
+.transfer-list{display:flex;flex-direction:column;gap:10px;margin-top:16px}
+.transfer-item{border:1px solid #34363d;border-radius:10px;background:#14151a;padding:14px}
+.transfer-title{display:flex;align-items:center;gap:11px;min-width:0}
+.transfer-title>span{display:grid;place-items:center;color:#f16305;width:28px;flex-shrink:0}
+.transfer-title svg{width:20px;height:20px}
+.transfer-title>div{flex:1;min-width:0}
+.transfer-title strong,.transfer-title small{display:block;overflow-wrap:anywhere}
+.transfer-title strong{font-size:12px}.transfer-title small{color:#999ba3;font-size:10px;margin-top:3px}
+.transfer-title>b{font-size:12px;color:#ffc398;font-variant-numeric:tabular-nums}
+.transfer-progress{height:5px;border-radius:4px;background:#292b31;overflow:hidden;margin:12px 0}
+.transfer-progress>i{display:block;height:100%;background:#f16305;transition:width .2s}
+.transfer-message{font-size:10px;color:#b7b8bf;line-height:1.55;margin-bottom:9px;overflow-wrap:anywhere}
+.transfer-item .button-row{justify-content:flex-end}
+.transfer-uploaded{border-color:#31503f}.transfer-uploaded .transfer-progress>i{background:#59b77b}
+.transfer-failed,.transfer-waiting_access{border-color:#794047}.transfer-failed .transfer-progress>i{background:#d45969}
+.transfer-empty{display:flex;align-items:center;justify-content:center;gap:10px;border:1px dashed #34363d;border-radius:10px;padding:22px;color:#92949d;font-size:12px;margin-top:14px}
+.transfer-empty svg{width:22px;color:#f16305}
+.auto-sync-setting.compact{margin-top:15px}
+.snapshot-list{display:flex;flex-direction:column;gap:9px}
+.snapshot-list>div{display:flex;align-items:center;gap:12px;border:1px solid #30323a;border-radius:9px;padding:11px}
+.snapshot-list>div>span{flex:1;min-width:0}.snapshot-list strong,.snapshot-list small{display:block;overflow-wrap:anywhere}.snapshot-list strong{font-size:11px}.snapshot-list small{font-size:9px;color:#999ba3;margin-top:3px}
+.diagnostics-section{border-top:0;margin-top:0;padding-top:0}
+.health-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:18px 0}
+.health-grid>div{border:1px solid #34363d;border-radius:8px;padding:10px;background:#14151a}
+.health-grid span{display:flex;align-items:center;gap:6px;font-size:10px;color:#b7b8bf}.health-grid svg{width:14px}.health-grid strong{display:block;text-transform:uppercase;font-size:9px;margin-top:6px}
+.health-ok{border-color:#31503f!important}.health-ok svg,.health-ok strong{color:#62c887}.health-warning{border-color:#735c35!important}.health-warning svg,.health-warning strong{color:#e2b45f}.health-error{border-color:#794047!important}.health-error svg,.health-error strong{color:#ec6c7c}
+.diagnostic-actions{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0}
+.diagnostic-log{display:flex;flex-direction:column;gap:7px;max-height:330px;overflow:auto}
+.diagnostic-event{border:1px solid #30323a;border-radius:8px;background:#14151a}
+.diagnostic-event>summary{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:9px;padding:10px;cursor:pointer;list-style:none}
+.diagnostic-event>summary>span{text-transform:uppercase;font-size:8px;color:#f16305}.diagnostic-event>summary>strong{font-size:10px}.diagnostic-event>summary>small{font-size:9px;color:#888b94}
+.diagnostic-event>div{border-top:1px solid #30323a;padding:11px;font-size:10px}.diagnostic-event dl{display:grid;gap:4px;margin:9px 0}.diagnostic-event dl>div{display:grid;grid-template-columns:80px 1fr;gap:8px}.diagnostic-event dt{color:#888b94}.diagnostic-event dd{overflow-wrap:anywhere}.diagnostic-event pre,.diagnostic-report-dialog pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#0d0e11;border-radius:7px;padding:10px;font-size:9px;max-height:420px;overflow:auto}
+.critical-recovery{max-width:780px;margin:auto}.critical-recovery>.button-row{justify-content:center;flex-wrap:wrap}.critical-recovery code{color:#ffc398}
+.analytics-insights{margin-bottom:20px}.analytics-subheading{margin-bottom:12px}.analytics-subheading h2{font-size:22px}
+.insight-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.insight-card{min-width:0;border:1px solid #30323a;border-radius:12px;background:linear-gradient(145deg,#17181d,#111216);padding:16px;box-shadow:0 10px 25px #0003}
+.insight-card>svg{width:20px;height:20px;color:#f16305;margin-bottom:18px}.insight-card>span,.insight-card>strong,.insight-card>small{display:block}.insight-card>span{font-size:9px;letter-spacing:1.4px;text-transform:uppercase;color:#8f929b}.insight-card>strong{font-size:14px;line-height:1.45;margin:7px 0;overflow-wrap:anywhere}.insight-card>small{font-size:10px;line-height:1.5;color:#858891;overflow-wrap:anywhere}
+.chart-note{font-size:10px;line-height:1.6;color:#858891;margin:-8px 10px 10px}
+.comparison-legend{display:flex;flex-wrap:wrap;gap:7px 15px;padding:0 10px 10px}
+.comparison-legend>span{display:flex;align-items:center;gap:6px;font-size:10px;color:#c2c3c9}.comparison-legend>span.unavailable{opacity:.42}.comparison-legend i{width:9px;height:9px;border-radius:2px;flex-shrink:0}.comparison-legend small{color:#7f828c}
+.trend-legend{display:flex;flex-wrap:wrap;gap:8px 18px;margin:0 10px 8px;color:#b2b4bc;font-size:11px}.trend-legend span{display:inline-flex;align-items:center;gap:7px}.trend-legend i{width:22px;height:3px;border-radius:999px}
+@media(max-width:1000px){.insight-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:640px){.insight-grid{grid-template-columns:1fr}.insight-card{display:grid;grid-template-columns:auto 1fr;column-gap:12px}.insight-card>svg{grid-row:1/4;margin:2px 0}.insight-card>span,.insight-card>strong,.insight-card>small{grid-column:2}.transfer-heading,.diagnostics-heading{flex-direction:column}.health-grid{grid-template-columns:1fr 1fr}.snapshot-list>div{align-items:flex-start;flex-direction:column}.snapshot-list button{width:100%}.comparison-legend{padding-left:7px}.analytics-insights{padding:0 6px}.ride-time-fields{padding:12px}}

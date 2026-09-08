@@ -26,6 +26,7 @@ import {
 } from "@/lib/kairo/domain";
 import {driveFileUrl} from "@/lib/kairo/drive";
 import {maintenanceOdometer,templateForMaintenance} from "@/lib/kairo/maintenance";
+import type {TransferState} from "@/lib/kairo/storage";
 import {useI18n,ltGearCategories,ltGearStatuses,ltMaintenanceCategories} from "@/lib/kairo/i18n";
 import {
   averageDistance,dueMaintenance,fitChartDomain,maintenanceStatus,metricDistance,periodData,rideEntries,tripRideStats,
@@ -102,9 +103,11 @@ export function MaintenanceCard({item,state,actions}:{item:Maintenance;state:Sta
   </div></details>;
 }
 
-export function FileListView({files,localIds,onDownload,onDelete,editable=false}:{files:Attachment[];localIds:Set<string>;onDownload:(a:Attachment)=>void;onDelete:(a:Attachment)=>void;editable?:boolean}){
+export type FileTransferView={state:TransferState;percent:number;message?:string};
+export function FileListView({files,localIds,onDownload,onDelete,editable=false,transfers={}}:{files:Attachment[];localIds:Set<string>;onDownload:(a:Attachment)=>void;onDelete:(a:Attachment)=>void;editable?:boolean;transfers?:Record<string,FileTransferView>}){
   const {tr}=useI18n();
-  return <div className="file-list">{files.map(a=><div className="file-row" key={a.id}><div className="file-badge"><File/><span>{a.name.split(".").at(-1)?.slice(0,5).toUpperCase()}</span></div><div className="file-info"><strong>{a.name}</strong><span>{bytes(a.size)} · {a.driveId?"Google Drive":localIds.has(a.id)?tr("This device only","Tik šiame įrenginyje"):tr("Original not downloaded yet","Originalas dar neatsiųstas")}</span></div><div className="row-actions">{a.driveId?<Button variant="outline" size="sm" asChild><a href={driveFileUrl(a.driveId)} target="_blank" rel="noopener noreferrer">{tr("Open","Atverti")} <ArrowRight/></a></Button>:<Button variant="outline" size="icon" disabled={!localIds.has(a.id)} onClick={()=>onDownload(a)} aria-label={`${tr("Download","Atsisiųsti")} ${a.name}`}><ArrowDownToLine/></Button>}{editable&&<Button variant="ghost" size="icon" aria-label={`${tr("Remove link","Pašalinti nuorodą")} ${a.name}`} onClick={()=>onDelete(a)}><Trash2/></Button>}</div></div>)}</div>;
+  const labels:Record<TransferState,string>={saved_local:tr("Saved locally; not queued","Išsaugota vietoje; ne eilėje"),queued:tr("Queued for Drive","Laukia Drive"),waiting_access:tr("Waiting for Drive access","Laukia Drive prieigos"),uploading:tr("Uploading","Įkeliama"),paused:tr("Paused","Pristabdyta"),retrying:tr("Retrying","Bandoma dar kartą"),uploaded:"Google Drive",failed:tr("Upload needs attention","Įkėlimui reikia dėmesio")};
+  return <div className="file-list">{files.map(a=>{const transfer=transfers[a.id],status=a.driveId?"Google Drive":transfer?`${labels[transfer.state]}${["uploading","retrying"].includes(transfer.state)?` · ${transfer.percent}%`:""}`:localIds.has(a.id)?tr("Saved on this device","Išsaugota šiame įrenginyje"):tr("Original not downloaded yet","Originalas dar neatsiųstas");return <div className="file-row" key={a.id}><div className="file-badge"><File/><span>{a.name.split(".").at(-1)?.slice(0,5).toUpperCase()}</span></div><div className="file-info"><strong>{a.name}</strong><span>{bytes(a.size)} · {status}</span>{transfer&&["uploading","retrying"].includes(transfer.state)&&<div className="file-transfer-progress"><i style={{width:`${transfer.percent}%`}}/></div>}</div><div className="row-actions">{a.driveId?<Button variant="outline" size="sm" asChild><a href={driveFileUrl(a.driveId)} target="_blank" rel="noopener noreferrer">{tr("Open","Atverti")} <ArrowRight/></a></Button>:<Button variant="outline" size="icon" disabled={!localIds.has(a.id)} onClick={()=>onDownload(a)} aria-label={`${tr("Download","Atsisiųsti")} ${a.name}`}><ArrowDownToLine/></Button>}{editable&&<Button variant="ghost" size="icon" aria-label={`${tr("Remove link","Pašalinti nuorodą")} ${a.name}`} onClick={()=>onDelete(a)}><Trash2/></Button>}</div></div>;})}</div>;
 }
 
 function PeriodChart({state}:{state:State}){
