@@ -1,32 +1,32 @@
 # Kairo Ride: paleidimas per GitHub
 
-Versija 2.0.8 · 2026/08/31 · skaičių formatas, eksportas į Drive ir kelionių juodraščiai
+Versija 2.0.9.1 · 2026/09/08 · atsparūs failų perdavimai, atkūrimas, diagnostika ir išplėsta analitika
 
-## Trumpai: atnaujinimas iš 2.0.7 ar ankstesnio paketo
+## Trumpai: atnaujinimas iš 2.0.9 ar ankstesnio paketo
 
 1. Programėlėje atsisiųsk JSON atsarginę kopiją. Neįkeltus originalius priedus išsisaugok atskirai.
-2. Išskleisk `Kairo-Ride-2.0.8.zip` ir įkelk **vidinio `Kairo-Ride` aplanko turinį** į tą pačią GitHub repozitorijos šaknį. Pasirink `Commit changes`. Senų katalogų prieš tai netrink.
-3. Įkelk ir naujus failus iš `components/kairo`, `hooks`, `lib/kairo` bei `tests`. Jau esančių paslėptų konfigūracijos failų keisti nereikia. `GOOGLE_CLIENT_ID` GitHub kintamasis ir esama Google konfigūracija lieka tie patys.
-4. Sulauk žalio `Actions → Publish Kairo Ride` rezultato. Atnaujink puslapį su internetu, kad atsisiųstų naują programą, tada uždaryk visus Kairo Ride naršyklės ir įdiegtos PWA langus ir atverk dar kartą. Tai atlik **telefone ir kompiuteryje**. Apačioje turi būti **2.0.8**. Prieš testuodamas naujus veiksmus patikrink versiją abiejuose įrenginiuose. Naršyklės duomenų nevalyk ir PWA neišdiek.
+2. Išskleisk `Kairo-Ride-2.0.9.1.zip` ir įkelk **vidinio `Kairo-Ride` aplanko turinį** į tą pačią GitHub repozitorijos šaknį. Pasirink `Commit changes`. Senų katalogų prieš tai netrink.
+3. Įkelk visus pakeistus bei naujus failus, įskaitant `components/kairo`, `hooks`, `lib/kairo`, `tests`, `build` ir `scripts`. `GOOGLE_CLIENT_ID` GitHub kintamasis ir OAuth nustatymai lieka tie patys. Jei ID įrašytas tiesiai į `public/kairo-config.json`, prieš perrašydamas išsisaugok jo reikšmę ir grąžink ją į naują failą.
+4. Sulauk žalio `Actions → Publish Kairo Ride` rezultato. Atverk programėlę su internetu. Kai pasirodo pranešimas apie paruoštą versiją, pasirink `Review update → Update and restart`. Atnaujinimas aktyvuojamas tik visiškai atsisiuntus jo failus ir sukūrus vietinį atkūrimo tašką. Tai atlik **telefone ir kompiuteryje**. Apačioje turi būti **2.0.9.1**. Naršyklės duomenų nevalyk ir PWA neišdiek.
 5. `Settings → Synchronization → Automatic sync` numatytai įjungtas. Jei prašoma, paspausk **Refresh access**. Esamos duomenų bazės iš naujo importuoti nereikia.
 
-### Kas pasikeitė 2.0.8
+### Kas pasikeitė 2.0.9.1
 
-- Skaičiai numatytai rodomi `1 234,56`; formatą keisk `Settings → Appearance & regional settings → Number format`, tada `Apply`.
-- Fleet pradeda nuo kairiausios priemonės; Add liko garaže.
-- Globalioje progreso juostoje pateikiama prognozuojama pasiekimo data pasirinktu datos formatu.
-- Sumažintas apatinės juostos aukštis, Rides datos stulpelis nebefiksuotas.
-- Goals kortelės suskleidžiamos, Settings grupės pasirenkamos meniu šalia pavadinimo.
-- Eksportuojant pasirenki `Download file`, `Save to Google Drive` arba abu. Failo pavadinime yra versija ir laikas; Drive kopijos saugomos `Kairo Ride / Exports`. Jos neperrašo darbinės duomenų bazės.
-- `Add as trip` iškart leidžia pasirinkti failus. Jie išsaugomi tik su `Save`; `Cancel` juos atmeta.
-- Kelionės lange: `Close` be pakeitimų, `Cancel` esant pakeitimams ir `Save` jiems pritaikyti.
-- Langai prisitaiko prie telefone atidarytos klaviatūros ir leidžia nuslinkti iki apatinių laukų.
+- `Settings → Synchronization → Transfers` rodo kiekvieno failo būseną, procentus ir aiškų paaiškinimą. Galima pristabdyti, tęsti, kartoti arba išimti iš automatinės eilės neištrinant vietinės kopijos. Tęsiama nuo Google patvirtinto baito; pasirinktinai galima neleisti ekranui užmigti aktyvaus įkėlimo metu.
+- `Settings → Diagnostics` tikrina visos aplikacijos duomenų bazę, saugyklą, sinchronizavimą, Drive jungtį, aplikacijos talpyklą ir versiją. Vietinis žurnalas turi incidentų kodus. Ataskaita pirmiausia parodoma peržiūrai, neperduodama automatiškai ir išvalo žetonus, sesijų adresus, Drive ID bei asmeninius failus.
+- Vietiniai duomenys ir kiekviena Google paskyra laikomi atskirose erdvėse. Jungiant paskyrą aiškiai pasirenkama, ar į ją kopijuoti ankstesnius vietinius įrašus.
+- Prieš duomenų migraciją, importą, atkūrimą ir aplikacijos atnaujinimą kuriamas atkūrimo taškas. Atkūrimas įrašomas kaip naujesnė istorijos versija, todėl Drive negali tyliai grąžinti atšauktos būsenos.
+- Atnaujinimas pirmiausia pilnai atsisiunčiamas ir laukia vartotojo patvirtinimo. Aktyvų failo įkėlimą reikia užbaigti arba pristabdyti.
+- Kritinės klaidos vietoje tuščio ekrano pateikia incidento kodą, perkrovimą, vietinės JSON kopijos ir diagnostikos ataskaitos veiksmus.
+- Odometro sumažėjimas ar atstatymas reikalauja aiškaus patvirtinimo ir priežasties; ankstesnių datų įrašai leidžiami, jei nesugadina gretimų odometro įrašų sekos.
+- Analitikoje pridėtos 30/90 dienų km/d tendencijos, 30/90 dienų km/sav. tempas, einamo ir trijų ankstesnių savaičių, mėnesių bei metų sukauptos ridos palyginimai ir Insights. Nežinoma aprėptis nepaverčiama nuliu.
+- Važiavimui galima neprivalomai įvesti laiką ant rato. Iš tikrų laiko ir atstumo duomenų skaičiuojamas svertinis vidutinis greitis; trūkstamas laikas nespėjamas. Šie laukai įtraukti į Excel eksportą.
 
-Atnaujink abu įrenginius. Duomenų iš naujo importuoti, naujų Google leidimų prašyti ar keisti OAuth nereikia. Prieš atnaujinimą išsisaugok JSON kopiją ir palauk, kol įsikels originalai. Tikrą prisijungimą, failų įkėlimą ir klaviatūros elgesį dar pasitikrink telefone bei kompiuteryje.
+Atnaujink visus įrenginius **prieš įvesdamas laiką ant rato ar tęsdamas sinchronizuojamą redagavimą**. Vietinė duomenų bazė saugiai atnaujinama vietoje, tačiau sena programos versija naujo pasirenkamo lauko nesupranta. Duomenų iš naujo importuoti, naujų Google leidimų prašyti ar keisti OAuth nereikia. Prieš atnaujinimą išsisaugok JSON kopiją. Neįkelti originalai gali likti telefone: jų neprarasi, jei nevalysi naršyklės duomenų ir neišdiegsi PWA.
 
 ## 1. Pasiruošk paketą
 
-1. Atsisiųsk ir išskleisk `Kairo-Ride-2.0.8.zip` kompiuteryje.
+1. Atsisiųsk ir išskleisk `Kairo-Ride-2.0.9.1.zip` kompiuteryje.
 2. Atverk išskleistą `Kairo-Ride` aplanką. Jame turi matytis `package.json`, `app`, `components`, `public` ir kiti failai.
 3. **Nekelk į GitHub paties ZIP.** Reikia jo viduje esančių failų ir aplankų.
 4. Nepridėk savo Excel, JSON duomenų kopijų, nuotraukų, video, GPX ar prisijungimo paslapčių. `.gitignore` nėra apsauga nuo rankinio jų įkėlimo per svetainę.
@@ -51,7 +51,7 @@ Jei atnaujini jau sukurtą repozitoriją ir naršyklė paslėptą failą atmeta,
 
 **Prieš kiekvieną atnaujinimą visko trinti nereikia.** Į tą patį kelią įkeltas tokio pat pavadinimo failas naujame commit'e atnaujinamas. Tačiau failas, kurio naujame pakete nebėra, savaime neištrinamas ir lieka repozitorijoje.
 
-Šiam 2.0.8 paketui:
+Šiam 2.0.9.1 paketui:
 
 - įkelk išskleisto `Kairo-Ride` aplanko turinį į repozitorijos šaknį ir patvirtink pakeitimus;
 - senų `app`, `components`, `lib`, `public` ar kitų katalogų prieš tai netrink;
@@ -63,7 +63,7 @@ Jei atnaujini jau sukurtą repozitoriją ir naršyklė paslėptą failą atmeta,
 1. Vieną kartą pasirink `File → Clone repository` ir atsisiųsk savo `Kairo-Ride` repozitoriją.
 2. Nukopijuok naujo paketo turinį į tą vietinį aplanką ir sutik pakeisti tokio pat pavadinimo failus.
 3. Jei leidimo pastabose nurodyta pašalinti seną failą, ištrink jį tame vietiniame aplanke. **Neliesk `.git` katalogo.**
-4. GitHub Desktop lange peržiūrėk `Changes`, įrašyk, pvz., `Update Kairo Ride to 2.0.8`, pasirink `Commit to main`, tada `Push origin`.
+4. GitHub Desktop lange peržiūrėk `Changes`, įrašyk, pvz., `Update Kairo Ride to 2.0.9.1`, pasirink `Commit to main`, tada `Push origin`.
 
 GitHub istorija leidžia grįžti prie ankstesnio commit'o, todėl viso projekto ištrynimas prieš kiekvieną pataisą tik padidina riziką netyčia praleisti failą.
 
@@ -230,9 +230,9 @@ GitHub paskyrai įjunk dviejų žingsnių apsaugą: programėlės kodo pakeitima
 
 ## Paketo patikros prieš perdavimą
 
-Statinė versija surinkta ir 116 automatinių testų sėkmingai paleisti su abiem baziniais keliais: `/` ir `/Kairo-Ride/`. TypeScript ir ESLint patikros sėkmingos. Patikrintas sintetinės Google Client ID reikšmės įtraukimas tik į surinktą viešą konfigūraciją; pateikiamo kodo Client ID paliktas tuščias.
+Statinė versija surinkta ir 242 automatiniai testai sėkmingai paleisti su abiem baziniais keliais: `/` ir `/Kairo-Ride/`. TypeScript ir ESLint patikros sėkmingos. Patikrintas sintetinės Google Client ID reikšmės įtraukimas tik į surinktą viešą konfigūraciją; pateikiamo kodo Client ID paliktas tuščias.
 
-Naujos patikros apima abiejų grafikų ašių perskaičiavimą pagal rodomas priemones, priartinto intervalo skalę, `km/d` intervalus / laiko juostas / rūšiavimą, kompaktiškos lentelės struktūrą, automatinio sinchronizavimo laikmatį, vienalaikių siuntimų ribojimą, pakartotinius bandymus, atnaujinimų gavimą be vietinių pakeitimų ir dviejų įrenginių konflikto išsaugojimą. Surinkimo įspėjimas dėl didesnio JavaScript failo nėra klaida; papildomas kodo skaidymas paliktas vėlesniam optimizavimui.
+Naujos patikros apima atnaujinimo aktyvavimą tik gavus naudotojo sutikimą, paskyrų vietinių duomenų atskyrimą, migracijas ir atkūrimo taškus, konfliktų sprendimą, diagnostikos duomenų nuasmeninimą, atnaujinamus failų siuntimus su pauze ir tęsimu bei klaidos atveju išsaugotą patvirtintą baitų poziciją. Analitikos patikros apima 30 / 90 dienų slenkančius vidurkius, neišgalvotus nežinomų laikotarpių nulius, palyginamus laikotarpius, įžvalgas, EUC laiką ir svertinį vidutinį greitį. Surinkimo įspėjimas dėl didesnio JavaScript failo nėra klaida; papildomas kodo skaidymas paliktas vėlesniam optimizavimui.
 
 Maintenance patikros apima visus šablonus, abiejų priminimų varnelės būsenas, kitą pasirinktą priemonę, mėnesių pabaigas ir keliamuosius metus, savaitinį kartojimą, senų terminų išlaikymą, vienu veiksmu išsaugomą atlikimą ir kitą užduotį, JSON / Excel atkūrimą, konfliktus, telefono pranešimų siuntimo kelią ir atsisakyto leidimo gerbimą. Realus pranešimas tavo telefono operacinėje sistemoje turi būti išbandytas po publikavimo.
 

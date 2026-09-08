@@ -15,6 +15,6 @@ export default defineConfig(({mode})=>{
   resolve:{alias:{"@":fileURLToPath(new URL(".",import.meta.url))}},
   define:{"process.env.NEXT_PUBLIC_BASE_PATH":JSON.stringify(base)},
   plugins:[react(),kairoPwa()],
-  build:{outDir:"dist/client",emptyOutDir:true},
+  build:{outDir:"dist/client",emptyOutDir:true,sourcemap:"hidden"},
   };
 });
