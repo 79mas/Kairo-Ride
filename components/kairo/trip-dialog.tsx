@@ -14,7 +14,7 @@ import {PendingFiles} from "./pending-files";
 import {FileListView,RideRow,type FileTransferView,type ViewActions} from "./views";
 export type TripDraft={value:Trip;changed:boolean;parents:string[];namespace:string;files:File[];removed:Attachment[]};
 export function TripDialog({trip,state,namespace,initialEdit=false,actions,localIds,transfers,onDownload,onSave,onClose}:{trip:Trip;state:State;namespace:string;initialEdit?:boolean;actions:ViewActions;localIds:Set<string>;transfers?:Record<string,FileTransferView>;onDownload:(a:Attachment)=>void;onSave:(draft:TripDraft)=>Promise<void>;onClose:()=>void}){
-  const {tr,locale}=useI18n(),formId=useId();
+  const {tr,locale,language}=useI18n(),formId=useId();
   const [initial]=useState(()=>({...trip})),[draft,setDraft]=useState(()=>({...trip})),[parents]=useState(()=>(state.heads.get(entityKey("trip",trip.id))??[]).map(r=>r.operationId));
   const [editing,setEditing]=useState(initialEdit),[files,setFiles]=useState<File[]>([]),[removed,setRemoved]=useState<Attachment[]>([]),[busy,setBusy]=useState(false),[error,setError]=useState("");
   const changed=JSON.stringify(draft)!==JSON.stringify(initial),dirty=changed||files.length>0||removed.length>0,stats=tripRideStats(trip,state);
@@ -22,7 +22,7 @@ export function TripDialog({trip,state,namespace,initialEdit=false,actions,local
   const leave=()=>{if(!busy&&(!dirty||window.confirm(tr("Discard unsaved trip changes?","Atmesti neišsaugotus kelionės pakeitimus?"))))onClose();};
   const navigate=(run:()=>void)=>{if(!dirty||window.confirm(tr("Discard unsaved trip changes?","Atmesti neišsaugotus kelionės pakeitimus?")))run();};
   const guarded:ViewActions={...actions,openEditor:(...args)=>navigate(()=>actions.openEditor(...args)),openRide:(...args)=>navigate(()=>actions.openRide(...args)),setDetail:d=>navigate(()=>actions.setDetail(d))};
-  async function save(){if(busy||!dirty)return;setBusy(true);setError("");try{await onSave({value:draft,changed,parents,namespace,files,removed});onClose();}catch(e){setError(friendlyError(e));}finally{setBusy(false);}}
+  async function save(){if(busy||!dirty)return;setBusy(true);setError("");try{await onSave({value:draft,changed,parents,namespace,files,removed});onClose();}catch(e){setError(friendlyError(e,language));}finally{setBusy(false);}}
   return <Dialog open onOpenChange={open=>{if(!open)leave();}}><DialogContent className="detail-dialog trip-draft-dialog" showCloseButton={!busy}><DialogHeader><DialogTitle>{trip.name}</DialogTitle><DialogDescription>{formatDate(trip.startDate,false,undefined,locale)} → {formatDate(trip.endDate,false,undefined,locale)} · {formatKm(stats.distanceKm,locale)} km</DialogDescription></DialogHeader>
     <div className="entity-form">
       <div className="trip-draft-body"><form id={formId} className="trip-fields" onSubmit={event=>{event.preventDefault();void save();}}> 

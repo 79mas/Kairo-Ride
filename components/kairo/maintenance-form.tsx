@@ -41,7 +41,7 @@ export function MaintenanceForm({editor,state,busy,onSave,onCancel,onDirtyChange
   }
   function submit(event:FormEvent){
     event.preventDefault();
-    try{void onSave({value:maintenanceFromDraft(draft,id,original)});}catch(error){toast.error(friendlyError(error));}
+    try{void onSave({value:maintenanceFromDraft(draft,id,original)});}catch(error){toast.error(friendlyError(error,language));}
   }
   const hasReminder=draft.dateEnabled||draft.mileageEnabled;
   return <form onSubmit={submit} onChange={()=>onDirtyChange?.(true)} className="entity-form maintenance-form">

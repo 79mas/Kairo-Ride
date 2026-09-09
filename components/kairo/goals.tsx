@@ -15,6 +15,7 @@ import {entityKey,formatDate,formatKm,uuid,type Goal,type State} from "@/lib/kai
 import {vehicleSelectOptions} from "@/lib/kairo/vehicle-status";
 import {useI18n} from "@/lib/kairo/i18n";
 import type {ViewActions} from "./views";
+import {friendlyError} from "@/lib/kairo/errors";
 
 function goalLabel(goal:Goal,state:State,tr:(en:string,lt:string)=>string){
   const scope=goal.wheelId?state.wheel.find(w=>w.id===goal.wheelId)?.name??tr("Unavailable vehicle","Nepasiekiama priemonė"):tr("all vehicles","visos priemonės");
@@ -27,7 +28,7 @@ export function GoalForecasts({state,actions}:{state:State;actions?:ViewActions}
   const [editing,setEditing]=useState<Goal|null>(null),[parents,setParents]=useState<string[]>([]),[busy,setBusy]=useState(false);
   const goals=visibleGoals(state),selected=goals.some(g=>g.id===actions?.selectedGoal)?actions!.selectedGoal!:defaultEarthGoal.id;
   const open=(goal?:Goal)=>{const next:Goal=goal??{id:uuid(),name:"",targetKm:10000,wheelId:null,period:"all",createdAt:new Date().toISOString()};setEditing({...next});setParents((state.heads.get(entityKey("goal",next.id))??[]).map(r=>r.operationId));};
-  async function save(event:FormEvent){event.preventDefault();if(!editing||!actions?.saveGoal)return;setBusy(true);try{await actions.saveGoal(editing,parents);setEditing(null);}catch(error){toast.error(error instanceof Error?error.message:"Could not save goal.");}finally{setBusy(false);}}
+  async function save(event:FormEvent){event.preventDefault();if(!editing||!actions?.saveGoal)return;setBusy(true);try{await actions.saveGoal(editing,parents);setEditing(null);}catch(error){toast.error(friendlyError(error,language));}finally{setBusy(false);}}
   return <section className="goal-section panel"><div className="chart-heading"><div><p className="eyebrow">{tr("GOALS","TIKSLAI")}</p><h2><Target/>{tr("Distance goals","Ridos tikslai")}</h2></div><Button disabled={!actions} onClick={()=>open()}><Plus/>{tr("Add goal","Pridėti tikslą")}</Button></div>
     <Field label={tr("Show in the global progress bar","Rodyti bendroje progreso juostoje")}><Pick label={tr("Global progress goal","Bendros juostos tikslas")} value={selected} onChange={value=>actions?.selectGoal?.(value)} options={goals.map(g=>({value:g.id,label:goalLabel(g,state,tr)}))}/></Field>
     <div className="goal-grid">{goals.map(goal=>{const f=forecastGoal(state,goal),label=goalLabel(goal,state,tr),window=goalWindow(goal);return <details className="goal-card" key={goal.id}><summary><strong>{label}</strong><span>{formatKm(goal.targetKm,locale)} km</span></summary><div className="goal-card-body"><div className="section-heading"><strong>{tr("Goal details","Tikslo informacija")}</strong><Button variant="ghost" size="icon" disabled={!actions} onClick={()=>open(goal)} aria-label={tr("Edit goal","Redaguoti tikslą")+": "+label}><Pencil/></Button></div>

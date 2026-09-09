@@ -127,7 +127,7 @@ function GeneralEntityForm({editor,state,busy,onSave,onCancel,onDirtyChange}:Ent
     }
     if(editor.kind==="reading")validateRecordTarget(state,value as Reading);
     request={value,files:editor.kind==="trip"?files:[]};void onSave(request);
-  }catch(error){toast.error(friendlyError(error));}}
+  }catch(error){toast.error(friendlyError(error,language));}}
 
   const durationPreview=(Number(rideHours)||0)*60+(Number(rideMinutes)||0),speedPreview=durationPreview>0&&distancePreview?.distanceKm!==null&&!distancePreview?.requiresReason?distancePreview!.distanceKm!/(durationPreview/60):null;
   const exceptionFields=distancePreview?.requiresReason?<div className="odometer-exception"><label className="check-card"><input type="checkbox" checked={confirmOdometerException} onChange={event=>setConfirmOdometerException(event.target.checked)}/><span>{tr("This odometer decrease/reset is intentional","Šis odometro sumažėjimas / atstatymas yra tyčinis")}</span></label>{confirmOdometerException&&<Field label={tr("Required reason","Privaloma priežastis")} hint={tr("Stored with the record so the unknown interval is excluded instead of inventing negative distance.","Išsaugoma su įrašu, kad nežinomas intervalas būtų praleistas, o ne sukurtas neigiamas atstumas.")}><Textarea required minLength={3} maxLength={1000} value={odometerReason} onChange={event=>setOdometerReason(event.target.value)} placeholder={tr("e.g. Odometer reset after controller replacement","Pvz., odometras atstatytas pakeitus valdiklį")}/></Field>}</div>:null;

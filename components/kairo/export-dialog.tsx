@@ -3,6 +3,7 @@ import {toast} from "sonner";
 import {Button} from "@/components/ui/button";
 import {Dialog,DialogContent,DialogHeader,DialogTitle,DialogDescription,DialogFooter} from "@/components/ui/dialog";
 import {useI18n} from "@/lib/kairo/i18n";
+import {friendlyError} from "@/lib/kairo/errors";
 export type ExportFile={blob:Blob;name:string;namespace:string;format:"json"|"xlsx"};
 type Translate=(english:string,lithuanian:string)=>string;
 export function exportSuccessMessage(format:ExportFile["format"],local:boolean,drive:boolean,tr:Translate){
@@ -12,7 +13,7 @@ export function exportSuccessMessage(format:ExportFile["format"],local:boolean,d
   return tr(`${label} export completed successfully. The backup was saved to your device.`,`${label} eksportas įvyko sėkmingai. Atsarginė kopija išsaugota tavo įrenginyje.`);
 }
 export function ExportDialog({file,canSave,save,download,close}:{file:ExportFile;canSave:boolean;save:(file:ExportFile)=>Promise<void>;download:(blob:Blob,name:string)=>void;close:()=>void}){
-  const {tr}=useI18n();
+  const {tr,language}=useI18n();
   const [local,setLocal]=useState(true),[drive,setDrive]=useState(false),[downloaded,setDownloaded]=useState(false),[saved,setSaved]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState("");
   const running=useRef(false);
   async function run(){
@@ -25,7 +26,7 @@ export function ExportDialog({file,canSave,save,download,close}:{file:ExportFile
       if(local&&!localDone){download(file.blob,file.name);localDone=true;setDownloaded(true);}
       if(drive&&!driveDone){await save(file);driveDone=true;setSaved(true);}
       if((!local||localDone)&&(!drive||driveDone))completed={local:localDone,drive:driveDone};
-    }catch(e){setError(e instanceof Error?e.message:String(e));}
+    }catch(e){setError(friendlyError(e,language));}
     finally{running.current=false;setBusy(false);}
     if(completed){toast.success(exportSuccessMessage(file.format,completed.local,completed.drive,tr),{duration:8000});close();}
   }
