@@ -1,6 +1,7 @@
 import {appPath} from "./paths";
 import {APP_VERSION,readBuildInfo} from "./version";
 import {appendDiagnostic,clearDiagnostics,listDiagnostics,storageSelfCheck,type StoredDiagnostic} from "./storage";
+import {explainDiagnosticEvent} from "./errors";
 
 export type DiagnosticLevel="info"|"warning"|"error"|"critical";
 export type DiagnosticContext={
@@ -74,9 +75,15 @@ export async function runHealthCheck(namespace:string,input:{connected:boolean;a
     synchronization:{status:input.pendingRecords||input.pendingFiles||input.conflicts?"warning":"ok",pendingRecords:input.pendingRecords,pendingFiles:input.pendingFiles,conflicts:input.conflicts,...(input.lastSync?{lastSync:input.lastSync}:{})},
     storage:{status:pressure?"warning":"ok",usage:estimate?.usage,quota:estimate?.quota,persisted},serviceWorker:{status:navigator.serviceWorker?.controller?"ok":"warning",controlled:!!navigator.serviceWorker?.controller}};
 }
+export function privacySafeReportData(events:DiagnosticEvent[],health?:HealthReport){
+  const safeEvents=events.map(row=>{const event={...row} as Partial<DiagnosticEvent>;delete event.key;delete event.namespace;return {...event,explanation:explainDiagnosticEvent(row.code,row.message,row.level,"en")};});
+  const safeHealth=health?{...health,drive:{...health.drive,account:"[account hidden]"}}:undefined;
+  return {health:safeHealth,events:safeEvents};
+}
 export async function diagnosticReport(namespace:string,health?:HealthReport){
   const [events,build]=await Promise.all([listDiagnostics(namespace),readBuildInfo()]);
-  return sanitizeDiagnostic({format:"kairo-ride-diagnostics",generatedAt:new Date().toISOString(),app:{version:APP_VERSION,buildId:build.buildId,builtAt:build.builtAt},health,environment:{online:navigator.onLine,language:navigator.language,displayMode:matchMedia("(display-mode: standalone)").matches?"standalone":"browser"},events}) as Record<string,unknown>;
+  const safe=privacySafeReportData(events as DiagnosticEvent[],health);
+  return sanitizeDiagnostic({format:"kairo-ride-diagnostics",generatedAt:new Date().toISOString(),app:{version:APP_VERSION,buildId:build.buildId,builtAt:build.builtAt},health:safe.health,environment:{online:navigator.onLine,language:navigator.language,displayMode:matchMedia("(display-mode: standalone)").matches?"standalone":"browser"},events:safe.events}) as Record<string,unknown>;
 }
 export function diagnosticText(report:Record<string,unknown>){return `Kairo Ride diagnostics\nDeveloper: kairosbytomas@gmail.com\n\n${JSON.stringify(report,null,2)}`;}
 export async function clearDiagnosticLog(namespace:string){await clearDiagnostics(namespace);}

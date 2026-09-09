@@ -1,16 +1,23 @@
 # Kairo Ride: paleidimas per GitHub
 
-Versija 2.0.9.1 · 2026/09/08 · atsparūs failų perdavimai, atkūrimas, diagnostika ir išplėsta analitika
+Versija 2.0.9.2 · 2026/09/09 · tikros failų būsenos, suprantamos klaidos ir atspari analitika
 
 ## Trumpai: atnaujinimas iš 2.0.9 ar ankstesnio paketo
 
 1. Programėlėje atsisiųsk JSON atsarginę kopiją. Neįkeltus originalius priedus išsisaugok atskirai.
-2. Išskleisk `Kairo-Ride-2.0.9.1.zip` ir įkelk **vidinio `Kairo-Ride` aplanko turinį** į tą pačią GitHub repozitorijos šaknį. Pasirink `Commit changes`. Senų katalogų prieš tai netrink.
+2. Išskleisk `Kairo-Ride-2.0.9.2.zip` ir įkelk **vidinio `Kairo-Ride` aplanko turinį** į tą pačią GitHub repozitorijos šaknį. Pasirink `Commit changes`. Senų katalogų prieš tai netrink.
 3. Įkelk visus pakeistus bei naujus failus, įskaitant `components/kairo`, `hooks`, `lib/kairo`, `tests`, `build` ir `scripts`. `GOOGLE_CLIENT_ID` GitHub kintamasis ir OAuth nustatymai lieka tie patys. Jei ID įrašytas tiesiai į `public/kairo-config.json`, prieš perrašydamas išsisaugok jo reikšmę ir grąžink ją į naują failą.
-4. Sulauk žalio `Actions → Publish Kairo Ride` rezultato. Atverk programėlę su internetu. Kai pasirodo pranešimas apie paruoštą versiją, pasirink `Review update → Update and restart`. Atnaujinimas aktyvuojamas tik visiškai atsisiuntus jo failus ir sukūrus vietinį atkūrimo tašką. Tai atlik **telefone ir kompiuteryje**. Apačioje turi būti **2.0.9.1**. Naršyklės duomenų nevalyk ir PWA neišdiek.
+4. Sulauk žalio `Actions → Publish Kairo Ride` rezultato. Atverk programėlę su internetu. Kai pasirodo pranešimas apie paruoštą versiją, pasirink `Review update → Update and restart`. Atnaujinimas aktyvuojamas tik visiškai atsisiuntus jo failus ir sukūrus vietinį atkūrimo tašką. Tai atlik **telefone ir kompiuteryje**. Apačioje turi būti **2.0.9.2**. Naršyklės duomenų nevalyk ir PWA neišdiek.
 5. `Settings → Synchronization → Automatic sync` numatytai įjungtas. Jei prašoma, paspausk **Refresh access**. Esamos duomenų bazės iš naujo importuoti nereikia.
 
-### Kas pasikeitė 2.0.9.1
+### Kas pasikeitė 2.0.9.2
+
+- Visų vartotojui rodomų klaidų pagrindas dabar yra aiškus pavadinimas, paaiškinimas ir konkretus tolesnis veiksmas. Kodai, palaikymo numeriai ir techniniai pėdsakai palikti išskleidžiamoje diagnostikos dalyje.
+- Analitikos metų palyginimo ašis sutvarkyta taip, kad nekeliamųjų metų vasario 29-oji būtų tuščia reikšmė, o ne visą skirtuką uždaranti `Invalid time value` klaida.
+- Aktyvaus failo **Cancel upload** dabar nutraukia būtent jo tinklo užklausą. Vietinis originalas ir Google patvirtinta tęstinio įkėlimo vieta išlieka, todėl failą galima vėliau tęsti.
+- Google patvirtintas `driveId` yra vienintelis galutinės įkėlimo būsenos šaltinis: patvirtintas failas visada rodomas kaip **Uploaded and confirmed — 100%**; pasenę 0 % skaitikliai pataisomi.
+- Neišsami duomenų istorija pranešime įvardijama žmogui atpažįstamu objekto pavadinimu, o ne vidiniu UUID, ir aiškiai pasiūloma atkurti pilną JSON kopiją.
+- Diagnostikos ataskaita išlaiko techninę informaciją ir suprantamą paaiškinimą, tačiau iš jos pašalintas stabilus Google paskyros vardų srities identifikatorius bei el. paštas.
 
 - `Settings → Synchronization → Transfers` rodo kiekvieno failo būseną, procentus ir aiškų paaiškinimą. Galima pristabdyti, tęsti, kartoti arba išimti iš automatinės eilės neištrinant vietinės kopijos. Tęsiama nuo Google patvirtinto baito; pasirinktinai galima neleisti ekranui užmigti aktyvaus įkėlimo metu.
 - `Settings → Diagnostics` tikrina visos aplikacijos duomenų bazę, saugyklą, sinchronizavimą, Drive jungtį, aplikacijos talpyklą ir versiją. Vietinis žurnalas turi incidentų kodus. Ataskaita pirmiausia parodoma peržiūrai, neperduodama automatiškai ir išvalo žetonus, sesijų adresus, Drive ID bei asmeninius failus.
@@ -26,7 +33,7 @@ Atnaujink visus įrenginius **prieš įvesdamas laiką ant rato ar tęsdamas sin
 
 ## 1. Pasiruošk paketą
 
-1. Atsisiųsk ir išskleisk `Kairo-Ride-2.0.9.1.zip` kompiuteryje.
+1. Atsisiųsk ir išskleisk `Kairo-Ride-2.0.9.2.zip` kompiuteryje.
 2. Atverk išskleistą `Kairo-Ride` aplanką. Jame turi matytis `package.json`, `app`, `components`, `public` ir kiti failai.
 3. **Nekelk į GitHub paties ZIP.** Reikia jo viduje esančių failų ir aplankų.
 4. Nepridėk savo Excel, JSON duomenų kopijų, nuotraukų, video, GPX ar prisijungimo paslapčių. `.gitignore` nėra apsauga nuo rankinio jų įkėlimo per svetainę.
@@ -51,7 +58,7 @@ Jei atnaujini jau sukurtą repozitoriją ir naršyklė paslėptą failą atmeta,
 
 **Prieš kiekvieną atnaujinimą visko trinti nereikia.** Į tą patį kelią įkeltas tokio pat pavadinimo failas naujame commit'e atnaujinamas. Tačiau failas, kurio naujame pakete nebėra, savaime neištrinamas ir lieka repozitorijoje.
 
-Šiam 2.0.9.1 paketui:
+Šiam 2.0.9.2 paketui:
 
 - įkelk išskleisto `Kairo-Ride` aplanko turinį į repozitorijos šaknį ir patvirtink pakeitimus;
 - senų `app`, `components`, `lib`, `public` ar kitų katalogų prieš tai netrink;
@@ -63,7 +70,7 @@ Jei atnaujini jau sukurtą repozitoriją ir naršyklė paslėptą failą atmeta,
 1. Vieną kartą pasirink `File → Clone repository` ir atsisiųsk savo `Kairo-Ride` repozitoriją.
 2. Nukopijuok naujo paketo turinį į tą vietinį aplanką ir sutik pakeisti tokio pat pavadinimo failus.
 3. Jei leidimo pastabose nurodyta pašalinti seną failą, ištrink jį tame vietiniame aplanke. **Neliesk `.git` katalogo.**
-4. GitHub Desktop lange peržiūrėk `Changes`, įrašyk, pvz., `Update Kairo Ride to 2.0.9.1`, pasirink `Commit to main`, tada `Push origin`.
+4. GitHub Desktop lange peržiūrėk `Changes`, įrašyk, pvz., `Update Kairo Ride to 2.0.9.2`, pasirink `Commit to main`, tada `Push origin`.
 
 GitHub istorija leidžia grįžti prie ankstesnio commit'o, todėl viso projekto ištrynimas prieš kiekvieną pataisą tik padidina riziką netyčia praleisti failą.
 

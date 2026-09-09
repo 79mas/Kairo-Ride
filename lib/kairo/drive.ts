@@ -72,6 +72,14 @@ async function limitedJson(response:Response,maxBytes:number):Promise<unknown>{
   const bytes=new Uint8Array(size);let offset=0;for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.length;}
   return JSON.parse(new TextDecoder().decode(bytes));
 }
+function linkedAbortSignal(primary:AbortSignal,secondary?:AbortSignal|null){
+  if(!secondary)return {signal:primary,release:()=>{}};
+  const controller=new AbortController(),abort=(source:AbortSignal)=>{if(!controller.signal.aborted)controller.abort(source.reason);};
+  const fromPrimary=()=>abort(primary),fromSecondary=()=>abort(secondary);
+  if(primary.aborted)abort(primary);else primary.addEventListener("abort",fromPrimary,{once:true});
+  if(secondary.aborted)abort(secondary);else secondary.addEventListener("abort",fromSecondary,{once:true});
+  return {signal:controller.signal,release:()=>{primary.removeEventListener("abort",fromPrimary);secondary.removeEventListener("abort",fromSecondary);}};
+}
 
 export class DriveClient {
   private token:string;
@@ -79,9 +87,11 @@ export class DriveClient {
   private controller=new AbortController();
   private folders=new Map<string,DriveFile>();
   private exportSessions=new Map<string,{id:string;session:string;size:number}>();
+  private attachmentControllers=new Map<string,AbortController>();
   constructor(token:string,expiresAt:number,private fetcher:typeof fetch=globalThis.fetch.bind(globalThis)){this.token=token;this.expiresAt=expiresAt;}
   get connected(){return !!this.token&&!this.controller.signal.aborted&&Date.now()<this.expiresAt-30_000;}
-  disconnect(){this.controller.abort();this.token="";this.folders.clear();this.exportSessions.clear();}
+  disconnect(){this.controller.abort();for(const controller of this.attachmentControllers.values())controller.abort();this.attachmentControllers.clear();this.token="";this.folders.clear();this.exportSessions.clear();}
+  cancelAttachmentUpload(attachmentId:string){const controller=this.attachmentControllers.get(attachmentId);if(!controller)return false;controller.abort(new DOMException("Upload cancelled by user.","AbortError"));return true;}
   assertConnected(){if(!this.connected)throw new DriveError("Refresh Google access. Local changes are safe on this device.",401);}
   private async fetch(url:string,options:RequestInit={},allow:number[]=[]):Promise<Response>{
     this.assertConnected();
@@ -91,14 +101,14 @@ export class DriveClient {
     // Browsers reject that response as `Failed to fetch` when redirect mode is
     // "error", so expose 308 only for calls that explicitly expect it.
     const acceptsResumeIncomplete=allow.includes(308);
-    let response:Response;
+    let response:Response;const linked=linkedAbortSignal(this.controller.signal,options.signal);
     try{
-      response=await this.fetcher(url,{...options,headers:{...Object.fromEntries(new Headers(options.headers).entries()),Authorization:`Bearer ${this.token}`},signal:this.controller.signal,redirect:acceptsResumeIncomplete?"follow":"error",cache:"no-store"});
+      response=await this.fetcher(url,{...options,headers:{...Object.fromEntries(new Headers(options.headers).entries()),Authorization:`Bearer ${this.token}`},signal:linked.signal,redirect:acceptsResumeIncomplete?"follow":"error",cache:"no-store"});
     }catch(error){
       if(error instanceof Error&&error.name==="AbortError")throw error;
       if(error instanceof TypeError)throw new DriveError("Could not reach Google Drive. Check the connection and try again. Local records and files remain on this device.",0);
       throw error;
-    }
+    }finally{linked.release();}
     if(acceptsResumeIncomplete&&response.redirected)throw new DriveError("An unexpected Google upload redirect was blocked.",400);
     if(!response.ok&&!allow.includes(response.status)){
       if(response.status===401){this.token="";throw new DriveError("Google access expired. Press ‘Refresh access’.",401);}
@@ -224,6 +234,9 @@ export class DriveClient {
   }
   async uploadAttachment(namespace:string,attachment:Attachment,stored:StoredBlob,parent:string,onProgress:Progress):Promise<string>{
     if(stored.queued===false)throw new DriveError("This file is paused in Transfers.",409);
+    const previous=this.attachmentControllers.get(attachment.id);previous?.abort(new DOMException("A newer upload attempt replaced this one.","AbortError"));
+    const uploadController=new AbortController();this.attachmentControllers.set(attachment.id,uploadController);
+    try{
     const attempts=(stored.attempts??0)+1;
     await patchBlob(namespace,attachment.id,{transferState:attempts>1?"retrying":"uploading",attempts,lastError:undefined,pauseReason:undefined});
     const report=(state:TransferState,confirmedBytes:number,message:string)=>onProgress({message,phase:"files",attachmentId:attachment.id,name:attachment.name,state,confirmedBytes,totalBytes:stored.blob.size});
@@ -238,7 +251,7 @@ export class DriveClient {
       let session=stored.session;let offset=stored.confirmedBytes??0;
       await pauseIfNeeded();
       if(session){
-        const status=await this.fetch(safeSession(session),{method:"PUT",headers:{"Content-Range":`bytes */${stored.blob.size}`},body:new Blob([])},[308,404,410]);
+        const status=await this.fetch(safeSession(session),{method:"PUT",headers:{"Content-Range":`bytes */${stored.blob.size}`},body:new Blob([]),signal:uploadController.signal},[308,404,410]);
         if(status.ok){const done=ensureFile(await status.json());if(done.id!==fileId)throw new Error("Uploaded file ID does not match.");await patchBlob(namespace,attachment.id,{transferState:"uploaded",confirmedBytes:stored.blob.size,lastError:undefined,pauseReason:undefined});report("uploaded",stored.blob.size,`Uploaded ${attachment.name}`);return done.id;}
         if(status.status===308)offset=Number(status.headers.get("Range")?.match(/-(\d+)$/)?.[1]??-1)+1;
         else{session=undefined;offset=0;await patchBlob(namespace,attachment.id,{session:undefined,confirmedBytes:0});}
@@ -246,9 +259,9 @@ export class DriveClient {
       if(session&&(!Number.isFinite(offset)||offset<0||offset>stored.blob.size))throw new Error("Google returned an invalid upload position.");
       if(session&&offset===stored.blob.size&&stored.blob.size>0)throw new Error("All bytes were transferred, but Google has not confirmed the file. Sync again.");
       if(!session){
-        const response=await this.fetch(`${UPLOAD}/files?uploadType=resumable&fields=id`,{method:"POST",headers:{"Content-Type":"application/json","X-Upload-Content-Type":attachment.mimeType,"X-Upload-Content-Length":String(stored.blob.size)},body:JSON.stringify({id:fileId,name:attachment.name,parents:[parent],appProperties:{app:APP,kind:"attachment",attachmentId:attachment.id}})},[409]);
+        const response=await this.fetch(`${UPLOAD}/files?uploadType=resumable&fields=id`,{method:"POST",headers:{"Content-Type":"application/json","X-Upload-Content-Type":attachment.mimeType,"X-Upload-Content-Length":String(stored.blob.size)},body:JSON.stringify({id:fileId,name:attachment.name,parents:[parent],appProperties:{app:APP,kind:"attachment",attachmentId:attachment.id}}),signal:uploadController.signal},[409]);
         if(response.status===409){
-          const existing=await(await this.fetch(`${API}/files/${fileId}?fields=id,size,appProperties`)).json();
+          const existing=await(await this.fetch(`${API}/files/${fileId}?fields=id,size,appProperties`,{signal:uploadController.signal})).json();
           if(existing.appProperties?.attachmentId!==attachment.id||Number(existing.size)!==attachment.size)throw new Error("Drive attachment verification failed.");
           await patchBlob(namespace,attachment.id,{transferState:"uploaded",confirmedBytes:stored.blob.size,lastError:undefined,pauseReason:undefined});return ensureFile(existing).id;
         }
@@ -258,7 +271,7 @@ export class DriveClient {
       do{
         await pauseIfNeeded();
         const end=Math.min(offset+chunk,stored.blob.size);report(attempts>1?"retrying":"uploading",offset,`Uploading ${attachment.name}: ${Math.round(offset/Math.max(1,stored.blob.size)*100)} %`);
-        const response=await this.fetch(safeSession(session),{method:"PUT",headers:{"Content-Type":attachment.mimeType,"Content-Range":stored.blob.size?`bytes ${offset}-${end-1}/${stored.blob.size}`:"bytes */0"},body:stored.blob.slice(offset,end)},[308]);
+        const response=await this.fetch(safeSession(session),{method:"PUT",headers:{"Content-Type":attachment.mimeType,"Content-Range":stored.blob.size?`bytes ${offset}-${end-1}/${stored.blob.size}`:"bytes */0"},body:stored.blob.slice(offset,end),signal:uploadController.signal},[308]);
         if(response.ok){const result=ensureFile(await response.json());if(result.id!==fileId)throw new Error("Uploaded file ID does not match.");await patchBlob(namespace,attachment.id,{transferState:"uploaded",confirmedBytes:stored.blob.size,lastError:undefined,pauseReason:undefined});report("uploaded",stored.blob.size,`Uploaded ${attachment.name}`);return result.id;}
         const next=Number(response.headers.get("Range")?.match(/-(\d+)$/)?.[1]??-1)+1;
         if(next<=offset||next>end)throw new Error("Upload stopped. The next attempt will resume from Google's confirmed position.");offset=next;
@@ -276,6 +289,7 @@ export class DriveClient {
       if(current?.queued!==false&&current?.transferState!=="paused")await patchBlob(namespace,attachment.id,{transferState:waiting?"waiting_access":retry?"retrying":"failed",lastError:error instanceof Error?error.message:String(error),pauseReason:aborted?"Google connection closed.":undefined});
       throw error;
     }
+    }finally{if(this.attachmentControllers.get(attachment.id)===uploadController)this.attachmentControllers.delete(attachment.id);}
   }
   async writeSnapshot(operations:Operation[],root:string){
     const found=await this.list(property("kind","snapshot"));
@@ -328,7 +342,7 @@ export class DriveClient {
         try{
           const folder=await this.ownerFolder(attachment.ownerKind,attachment.ownerId,workspace.state);
           if(attachment.driveId){
-            if(stored?.transferState!=="uploaded")await patchBlob(namespace,attachment.id,{transferState:"uploaded",confirmedBytes:stored?.blob.size??attachment.size,lastError:undefined,pauseReason:undefined});
+            if(stored&&(stored.transferState!=="uploaded"||stored.confirmedBytes!==stored.blob.size||stored.queued!==false||stored.lastError||stored.pauseReason))await patchBlob(namespace,attachment.id,{transferState:"uploaded",queued:false,confirmedBytes:stored.blob.size,lastError:undefined,pauseReason:undefined});
             const file=await(await this.fetch(`${API}/files/${attachment.driveId}?fields=id,parents`)).json();
             if(!file.parents?.includes(folder.id)){
               const params=new URLSearchParams({addParents:folder.id,fields:"id"});
@@ -340,9 +354,14 @@ export class DriveClient {
           const driveId=await this.uploadAttachment(namespace,attachment,stored!,folder.id,onProgress);
           this.assertConnected();
           const latest=(await loadWorkspace(namespace)).state.attachment.find(a=>a.id===attachment.id);
-          if(latest)await commit(namespace,"attachment",attachmentSchema.parse({...latest,driveId}),attachment.id);
+          if(latest){
+            await commit(namespace,"attachment",attachmentSchema.parse({...latest,driveId}),attachment.id);
+            await patchBlob(namespace,attachment.id,{transferState:"uploaded",queued:false,confirmedBytes:stored!.blob.size,lastError:undefined,pauseReason:undefined});
+          }
         }catch(error){
           const status=typeof error==="object"&&error!==null&&"status" in error?Number(error.status):NaN;
+          const current=await storedBlob(namespace,attachment.id).catch(()=>undefined);
+          if(!attachment.driveId&&current?.queued===false)continue;
           if((error instanceof Error&&error.name==="AbortError")||status===0||status===401||status===403||status===408||status===429||status>=500)throw error;
           fileIssues.push({name:attachment.name,message:error instanceof Error?error.message:String(error)});
         }

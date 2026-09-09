@@ -1,6 +1,7 @@
 import { LOCAL_DATABASE, LOCAL_CHANNEL } from "./paths";
 import { KINDS, canonical, makeOperation, parseOperation, project, validateArchivedAssociations, validateRecordTarget, type Attachment, type Entity, type Kind, type Operation, type Reading, type Ride, type State, type Wheel } from "./domain";
 import {DATA_SCHEMA_VERSION} from "./version";
+import {friendlyError as explainFriendlyError,type ErrorLanguage} from "./errors";
 
 export type Profile = { namespace: string; email: string; name: string; permissionId: string };
 export type StoredOperation = { key: string; namespace: string; operation: Operation; uploaded: boolean; fileId?: string };
@@ -138,9 +139,9 @@ export async function storedBlob(namespace:string,attachmentId:string){const db=
 export async function setTransferQueued(namespace:string,attachmentId:string,queued:boolean,reason?:string){
   await patchBlob(namespace,attachmentId,{queued,transferState:queued?"queued":"paused",pauseReason:queued?undefined:(reason??"Removed from automatic upload queue"),lastError:undefined});
 }
-export async function pauseTransfer(namespace:string,attachmentId:string){await patchBlob(namespace,attachmentId,{queued:false,transferState:"paused",pauseReason:"Paused by user"});}
+export async function pauseTransfer(namespace:string,attachmentId:string){await patchBlob(namespace,attachmentId,{queued:false,transferState:"paused",lastError:undefined,pauseReason:"Upload cancelled. The local file and Google's confirmed progress were kept safely."});}
 export async function retryTransfer(namespace:string,attachmentId:string){await patchBlob(namespace,attachmentId,{queued:true,transferState:"queued",lastError:undefined,pauseReason:undefined});}
-export async function removeTransferFromQueue(namespace:string,attachmentId:string){await patchBlob(namespace,attachmentId,{queued:false,transferState:"saved_local",lastError:undefined,pauseReason:"Kept on this device only"});}
+export async function removeTransferFromQueue(namespace:string,attachmentId:string){await patchBlob(namespace,attachmentId,{queued:false,transferState:"saved_local",lastError:undefined,pauseReason:"Automatic upload is off for this file. Its local copy remains on this device."});}
 export async function copyLocalToAccount(profile: Profile) {
   const local=await loadWorkspace("local");
   const db=await database();const tx=db.transaction(["operations","blobs"],"readwrite");const done=complete(tx);
@@ -165,11 +166,7 @@ export async function addAttachment(namespace: string, ownerKind: "trip"|"ride",
   await commit(namespace,"attachment",a,a.id,file);
   return a;
 }
-export function friendlyError(error: unknown) {
-  if(error instanceof DOMException && error.name === "QuotaExceededError") return "Device storage is full. This change was not saved. Export a backup and free some space.";
-  if(error instanceof Error) return error.message;
-  return "The action failed. Your earlier records were not changed.";
-}
+export function friendlyError(error:unknown,language:ErrorLanguage="en"){return explainFriendlyError(error,language);}
 
 /** A compact operation-only checkpoint. Original blobs stay in their own store
  * and are never deleted by snapshot restore. */

@@ -19,6 +19,7 @@ export type AnalyticsInsights={
 type Cell={distance:number;estimated:boolean};
 const palette=["#f16305","#13c6e8","#f0b429","#b28dff"];
 const MAX_ANALYTICS_DAYS=50_000;
+export const YEAR_DAY_LABELS=(()=>{const keys:string[]=[];for(let day="2024-01-01";day<="2024-12-31";day=shiftDateKey(day,1))keys.push(day.slice(5));return keys;})();
 const mapKey=(wheelId:string,day:string)=>`${wheelId}|${day}`;
 const validDate=(value:string)=>{const parsed=new Date(`${value}T12:00:00Z`);return Number.isFinite(+parsed)&&parsed.toISOString().slice(0,10)===value;};
 
@@ -80,15 +81,15 @@ function periodDefinition(mode:ComparisonMode,offset:number,now:Date,weekStartsO
     const target=utcMonth(current.getUTCFullYear(),current.getUTCMonth()+offset),prefix=`${target.year}-${String(target.month+1).padStart(2,"0")}`;
     return {start:`${prefix}-01`,label:prefix,value:(index:number)=>{const key=`${prefix}-${String(index+1).padStart(2,"0")}`;return validDate(key)?key:null;},count:31};
   }
-  const year=current.getUTCFullYear()+offset,keys:string[]=[];for(let day="2024-01-01";day<="2024-12-31";day=shiftDateKey(day,1))keys.push(day.slice(5));
-  return {start:`${year}-01-01`,label:String(year),value:(index:number)=>{const key=`${year}-${keys[index]}`;return validDate(key)?key:null;},count:keys.length};
+  const year=current.getUTCFullYear()+offset;
+  return {start:`${year}-01-01`,label:String(year),value:(index:number)=>{const key=`${year}-${YEAR_DAY_LABELS[index]}`;return validDate(key)?key:null;},count:YEAR_DAY_LABELS.length};
 }
 
 /** Current plus three earlier periods, aligned by weekday, month day or
  * calendar month/day. Missing coverage and future dates remain null. */
 export function periodComparison(state:State,mode:ComparisonMode,wheelIds=state.wheel.map(wheel=>wheel.id),now=new Date(),weekStartsOn=readCalendarPreferences().weekStartsOn):PeriodComparison{
   const days=estimatedDailyDistance(state,wheelIds),lookup=new Map(days.map(day=>[day.date,day])),today=dateKey(now),definitions=Array.from({length:4},(_,index)=>periodDefinition(mode,-index,now,weekStartsOn));
-  const count=Math.max(...definitions.map(item=>item.count)),points:Array<ComparisonPoint>=Array.from({length:count},(_,index)=>({index,label:mode==="week"?String(index+1):mode==="month"?String(index+1):(definitions[0].value(index)?.slice(5)??"")}));
+  const count=Math.max(...definitions.map(item=>item.count)),points:Array<ComparisonPoint>=Array.from({length:count},(_,index)=>({index,label:mode==="week"?String(index+1):mode==="month"?String(index+1):(YEAR_DAY_LABELS[index]??"")}));
   const lines:ComparisonLine[]=definitions.map((definition,lineIndex)=>{
     const id=`period${lineIndex}`;let cumulative=0,known=0,eligible=0,estimated=false,complete=true;
     for(let index=0;index<count;index++){

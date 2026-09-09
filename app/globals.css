@@ -428,7 +428,7 @@ details[open]>.vehicle-summary>svg {transform:rotate(180deg)}
 .pending-file small{display:block;color:#999ba3}
 @media(max-width:420px){[role=dialog] .form-grid{grid-template-columns:1fr}[role=dialog]{padding:18px 14px}}
 
-/* 2.0.9.1 · resilient transfers, diagnostics and extended analytics */
+/* 2.0.9.2 · truthful transfers, readable errors and resilient analytics */
 .ride-time-fields{border:1px solid #30323a;border-radius:10px;background:#14151a;padding:14px;margin-top:2px}
 .ride-time-fields .field-hint{margin:0 0 12px;color:#9a9ca5;line-height:1.6}
 .ride-time-fields .form-grid{margin-bottom:10px}
@@ -469,6 +469,7 @@ details[open]>.vehicle-summary>svg {transform:rotate(180deg)}
 .diagnostic-event>summary{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:9px;padding:10px;cursor:pointer;list-style:none}
 .diagnostic-event>summary>span{text-transform:uppercase;font-size:8px;color:#f16305}.diagnostic-event>summary>strong{font-size:10px}.diagnostic-event>summary>small{font-size:9px;color:#888b94}
 .diagnostic-event>div{border-top:1px solid #30323a;padding:11px;font-size:10px}.diagnostic-event dl{display:grid;gap:4px;margin:9px 0}.diagnostic-event dl>div{display:grid;grid-template-columns:80px 1fr;gap:8px}.diagnostic-event dt{color:#888b94}.diagnostic-event dd{overflow-wrap:anywhere}.diagnostic-event pre,.diagnostic-report-dialog pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#0d0e11;border-radius:7px;padding:10px;font-size:9px;max-height:420px;overflow:auto}
+.diagnostic-action{margin:8px 0;color:#d6d2ca}.diagnostic-action strong{color:#f2a066}.diagnostic-technical{margin-top:10px;border-top:1px solid #2b2d34;padding-top:8px}.diagnostic-technical>summary{width:max-content;max-width:100%;cursor:pointer;color:#9497a0;font-weight:700;list-style-position:inside}.diagnostic-technical[open]>summary{color:#c4c6cc}
 .critical-recovery{max-width:780px;margin:auto}.critical-recovery>.button-row{justify-content:center;flex-wrap:wrap}.critical-recovery code{color:#ffc398}
 .analytics-insights{margin-bottom:20px}.analytics-subheading{margin-bottom:12px}.analytics-subheading h2{font-size:22px}
 .insight-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}

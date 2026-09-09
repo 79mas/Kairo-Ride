@@ -1,5 +1,6 @@
 "use client";
 import {useCallback,useEffect,useRef,useState} from "react";
+import {friendlyError} from "@/lib/kairo/errors";
 import {appPath} from "@/lib/kairo/paths";
 
 export type AppUpdate={version:string;buildId:string};
@@ -22,10 +23,10 @@ export function useAppUpdate({onOfflineReady,beforeActivate}:{onOfflineReady:()=
       if(!live)return;registration.current=reg;inspect(reg);reg.active?.postMessage({type:"CHECK_OFFLINE"});
       reg.addEventListener("updatefound",()=>{const worker=reg.installing;worker?.addEventListener("statechange",()=>{if(worker.state==="installed")inspect(reg);});});
       timer=setInterval(()=>{if(document.visibilityState==="visible")void reg.update().catch(()=>{});},15*60_000);
-    }).catch(reason=>live&&setError(reason instanceof Error?reason.message:String(reason)));
+    }).catch(reason=>live&&setError(friendlyError(reason)));
     return()=>{live=false;if(timer)clearInterval(timer);navigator.serviceWorker.removeEventListener("message",message);};
   },[inspect,onOfflineReady]);
-  const check=useCallback(async()=>{const reg=registration.current;if(!reg)return;setChecking(true);setError("");try{await reg.update();inspect(reg);}catch(reason){setError(reason instanceof Error?reason.message:String(reason));}finally{setChecking(false);}},[inspect]);
-  const activate=useCallback(async()=>{const worker=registration.current?.waiting;if(!worker)return;setActivating(true);setError("");try{await beforeActivate();await new Promise<void>((resolve,reject)=>{const timeout=setTimeout(()=>reject(new Error("The update did not activate. Try again.")),15000);navigator.serviceWorker.addEventListener("controllerchange",()=>{clearTimeout(timeout);resolve();},{once:true});worker.postMessage({type:"ACTIVATE_UPDATE"});});location.reload();}catch(reason){setError(reason instanceof Error?reason.message:String(reason));setActivating(false);}},[beforeActivate]);
+  const check=useCallback(async()=>{const reg=registration.current;if(!reg)return;setChecking(true);setError("");try{await reg.update();inspect(reg);}catch(reason){setError(friendlyError(reason));}finally{setChecking(false);}},[inspect]);
+  const activate=useCallback(async()=>{const worker=registration.current?.waiting;if(!worker)return;setActivating(true);setError("");try{await beforeActivate();await new Promise<void>((resolve,reject)=>{const timeout=setTimeout(()=>reject(new Error("The update did not activate. Try again.")),15000);navigator.serviceWorker.addEventListener("controllerchange",()=>{clearTimeout(timeout);resolve();},{once:true});worker.postMessage({type:"ACTIVATE_UPDATE"});});location.reload();}catch(reason){setError(friendlyError(reason));setActivating(false);}},[beforeActivate]);
   return {update,checking,activating,error,check,activate};
 }

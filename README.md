@@ -2,7 +2,7 @@
 
 ![Kairo Ride icon](public/icon-192.png)
 
-**Version 2.0.9.1 · resilient transfers, recovery, diagnostics and extended analytics**
+**Version 2.0.9.2 · truthful transfers, readable errors and resilient analytics**
 
 A privacy-first, English-first Progressive Web App for electric unicycle riders. Track odometer history, individual rides, multi-day trips, vehicles, gear, maintenance, insurance and original trip files from both phone and desktop.
 
@@ -25,30 +25,26 @@ Kairo Ride works offline, can sync directly to each user's Google Drive, and exp
 
 The interface uses a fixed black/orange theme with `#f16305` as the primary colour and is responsive on phones and desktop browsers. English is the default language; Lithuanian can be selected in Settings. The included web app manifest, service worker, favicons, Apple touch icon, and maskable icons make it installable as a PWA.
 
-## New in 2.0.9.1
+## New in 2.0.9.2
 
-- **Transfer Center:** every local original has a visible state, progress percentage and last useful message. Uploads can be paused, resumed, retried or removed from the automatic queue without deleting the local copy or database link. Kairo Ride records Google's confirmed byte offset and resumes from it. An optional screen wake lock is active only during a visible upload. Android can still suspend a closed or hidden PWA, so the interface says when it is safe to close and what will resume later.
-- **Drive reliability:** browser-level connection failures are translated into a useful message and retry classification. Database changes synchronize before large originals. A Pause action made during an in-flight chunk is preserved after that chunk is acknowledged.
-- **Whole-app Diagnostics:** local event log, storage/database self-check, build identity, sync/account/cache/storage health and incident IDs. A 30-minute detailed session can collect sanitized before/after context. The report preview excludes access tokens, authorization headers, upload-session URLs, complete Drive identifiers, database contents and original media. It is never transmitted automatically; **Send report to developer** uses the device share sheet when file sharing is supported, otherwise downloads the report and opens an email draft for manual attachment.
-- **Account isolation:** local data and each Google account use separate workspaces. On first connection, the user explicitly chooses whether to copy existing local records into that account. Disconnecting does not merge or erase another account's local copy.
-- **Safe migrations and recovery:** IndexedDB is upgraded in place without clearing records. Before migration, import, manual recovery or application activation, Kairo Ride creates a bounded local recovery point. Restoring a point creates a newer compensating history operation, so the next Drive sync cannot silently reapply the state that was intentionally restored.
-- **User-resolved conflicts:** concurrent edits retain both revisions and are presented one at a time. No whole database is silently chosen as the winner.
-- **Safe application updates:** a new shell is completely downloaded first and remains waiting until the user chooses **Update and restart**. An active upload must finish or be paused; a recovery point is created before activation. Local records are not cleared.
-- **Critical recovery:** an unexpected render/storage failure shows an incident ID and keeps recovery-backup, reload and diagnostic-report actions available instead of presenting a blank screen.
-- **Form protection:** duplicate submissions are blocked, changed dialogs warn before closing, and odometer decreases/resets require explicit confirmation plus a reason. Historical records can still be inserted when their date and surrounding odometer sequence are valid.
-- **Extended Analytics:** Insights compare the current month with the same covered days of the previous month, identify the longest vehicle-day and recorded riding frequency, and calculate total EUC time plus weighted average speed only from rides that contain a duration. New charts show 30/90-day rolling km/day, 30/90-day average km/week, and current/three previous week, month and year cumulative pace. Sparse odometer intervals are distributed across their calendar days; unknown coverage and future dates remain blank rather than becoming zero.
-- **Time on wheel:** a ride can optionally store hours/minutes. The ride detail and Excel export include the resulting average speed; old records remain valid and missing duration is never guessed.
+- **Human-readable failures:** every visible failure now has a plain-language title, an explanation of what happened and a concrete next action. Technical codes, support references and stack traces remain available under Diagnostics for investigation, but are no longer the only explanation shown to a rider.
+- **Analytics opens reliably:** year comparison charts use one fixed leap-year calendar axis and reject malformed date labels before formatting. A missing 29 February in a non-leap year remains an honest gap instead of crashing the whole Analytics tab with `Invalid time value`.
+- **Truthful transfer state:** a Google Drive file ID is the final source of truth. Once Drive confirms the file, the Transfer Center always shows **Uploaded and confirmed — 100%**, and stale local zero-byte progress is reconciled.
+- **Real upload cancellation:** **Cancel upload** aborts the active network request for that individual file immediately, preserves the original local blob and Google's last confirmed resumable byte, and prevents a late progress event from silently re-queuing it. The file can then be resumed or kept only on the device.
+- **Safer synchronization:** a deliberate disconnect/cancel abort is recorded as cancellation rather than a misleading sync failure. Attachment metadata is committed before the local queue is marked complete, so an interrupted finalization can still be retried safely.
+- **Clear integrity guidance:** incomplete history warnings identify the affected vehicle, gear item, ride or trip by a recognizable name instead of displaying an internal UUID. The action explains that a complete JSON backup is needed because missing history cannot be reconstructed automatically.
+- **Private diagnostics:** generated reports retain useful human explanations and technical detail while removing stable local account namespaces, event keys and account email from the report payload.
 
-This release upgrades local storage in place and adds an optional field to new ride history. **Update every phone and computer to 2.0.9.1 before adding ride duration or continuing multi-device synchronization.** Export a JSON backup first. Do not clear browser data or uninstall the PWA. No new Google scope, client secret, server or data reimport is required.
+This patch does not change the backup schema, request a new Google permission or require data reimport. Export a JSON backup first, update every device to **2.0.9.2**, and do not clear browser data or uninstall the PWA.
 
-### 2.0.9.1 acceptance checks
+### 2.0.9.2 acceptance checks
 
-1. Update every device, choose **Update and restart**, and confirm **2.0.9.1** in the footer. If Google access expired, use **Refresh access**.
-2. Open `Settings → Synchronization → Transfers`. Queue a test file larger than 8 MB, pause it, resume it and confirm that progress continues instead of restarting at zero. Keep the PWA visible for the test.
-3. Run `Settings → Diagnostics → Run self-check`, create a report, review its exact contents and test the share/download path without sending anything private unintentionally.
-4. Create a ride with an odometer and optional EUC time. Confirm calculated distance and speed, then inspect the new Analytics Insights, 30/90-day trend, growth and period-comparison charts.
-5. Export a fresh JSON recovery backup and Excel workbook. Verify that Excel contains **Time on wheel (min)** and **Average speed km/h**.
-6. Make different edits to the same test record on two offline devices, then synchronize both. Confirm that Kairo Ride asks which revision to keep.
+1. Choose **Update and restart** on every device and confirm **2.0.9.2** in the footer.
+2. Open Analytics and switch the week, month and year comparison controls. The tab must stay open; a non-leap-year 29 February is shown as missing data, not zero.
+3. Queue a file larger than 8 MB, press **Cancel upload** while it is moving, and verify that activity stops promptly. Resume it and verify that it continues from Google's confirmed position.
+4. After Drive confirms a file, verify that both its label and bar show **Uploaded and confirmed — 100%**. A local-only file must not claim to be uploaded.
+5. Trigger or inspect a diagnostic event. The normal view must explain the failure and next action; technical details must remain expandable. Review an exported report and verify that it does not contain the Google account email or stable account namespace.
+6. If an incomplete-history notice appears, restore a complete JSON backup and run sync again. Do not edit internal operation files by hand.
 
 ## Added in 2.0.9
 
@@ -56,7 +52,7 @@ This release upgrades local storage in place and adds an optional field to new r
 - **Clearer connection failures:** real browser network failures explain that Drive could not be reached, that local records and files remain safe, and that automatic sync will retry.
 - **Records first:** pending database history is uploaded before original trip files. A single invalid original is reported separately and no longer prevents otherwise valid rides, trips, vehicles, gear or maintenance records from synchronizing.
 - **Export confirmation:** after JSON or Excel export succeeds, a separate notification states the actual format and whether the backup was saved to the device, Google Drive, or both. A failed Drive attempt does not start the same local download twice when retried.
-- **Update activation:** the shell is cached atomically. Version 2.0.9.1 supersedes its immediate-activation behavior with an explicit update prompt so an open form is never replaced unexpectedly.
+- **Update activation:** the shell is cached atomically. Version 2.0.9.2 retains an explicit update prompt so an open form is never replaced unexpectedly.
 
 No database schema migration, reimport, new Google permission or OAuth change is required. Existing records, pending originals and the configured Drive folder remain in place.
 
@@ -120,7 +116,7 @@ The window includes today and days with zero distance. For a sparse odometer jou
 
 The date is not predicted without recent distance, for inconsistent/incomplete history, or for a selected inactive vehicle. A reached goal is labelled as reached. Future-dated records are excluded from the goal's current distance and rolling average. Goal scope is independent of the chart legend.
 
-**Compatibility:** 2.0.9.1 preserves old operations, record IDs, Drive folders and backup schema. Its local database upgrade adds recovery and diagnostic stores, and new rides may contain optional time-on-wheel data that older strict clients do not recognize. Upgrade every phone/computer window before synchronized edits; do not downgrade by clearing storage or reinstalling.
+**Compatibility:** 2.0.9.2 preserves old operations, record IDs, Drive folders and backup schema. Its local database upgrade adds recovery and diagnostic stores, and new rides may contain optional time-on-wheel data that older strict clients do not recognize. Upgrade every phone/computer window before synchronized edits; do not downgrade by clearing storage or reinstalling.
 
 ## Added in 2.0.5
 
@@ -146,7 +142,7 @@ The popup appears on every Garage visit and whenever you start a new record with
 
 All vehicles remain in Fleet, statistics, filters and historical rides. You may edit an existing archived record or add ride details to a legacy record, but cannot create a new record or move a record onto a different inactive vehicle. Historical imports, sync and recovery still work. Reactivate a vehicle in Garage when it is ready for new records. Offline devices only know the status they last synchronized.
 
-The internal history key `reading` is intentionally unchanged to preserve old backups and operation IDs. Older Excel exports with a `Readings` report sheet still import. The Wheels export includes current status, saved status and manual reminder text; History remains the authoritative recovery data. Status fields were introduced in 2.0.5; update all devices to the current **2.0.9.1** release before continuing synchronized work.
+The internal history key `reading` is intentionally unchanged to preserve old backups and operation IDs. Older Excel exports with a `Readings` report sheet still import. The Wheels export includes current status, saved status and manual reminder text; History remains the authoritative recovery data. Status fields were introduced in 2.0.5; update all devices to the current **2.0.9.2** release before continuing synchronized work.
 
 ## Privacy and storage model
 
@@ -282,7 +278,7 @@ JSON and Excel backups contain attachment metadata and Drive links, **not the or
 
 ## Important limitations
 
-- Version 2.0.9.1 is an early test build. Automated checks cover domain logic, storage, recovery, diagnostics, resumable Drive behavior, analytics and static PWA output. Real Google OAuth, the final GitHub Pages deployment, visual layout, Android suspension and physical-phone interaction must still be verified with the owner's accounts and devices.
+- Version 2.0.9.2 is an early test build. Automated checks cover domain logic, storage, recovery, diagnostics, resumable Drive behavior, analytics and static PWA output. Real Google OAuth, the final GitHub Pages deployment, visual layout, Android suspension and physical-phone interaction must still be verified with the owner's accounts and devices.
 - A single attachment is limited to 512 MB. An imported backup is limited to 25 MB. The browser may impose a lower practical storage limit.
 - Large uploads are not guaranteed to continue after the PWA is closed or suspended. Keep the app open until synchronization finishes.
 - Maintenance and insurance notifications are local. They are checked while the PWA is open or active; a fully closed mobile PWA cannot guarantee a scheduled alert without a push-notification server.
@@ -348,9 +344,9 @@ For browser-only updates, upload the package contents to the repository root and
 
 For repeated updates, GitHub Desktop is safer and easier to review: clone the repository once, copy the new package contents over the local clone, review modified and deleted files, commit, and choose [**Push origin**](https://docs.github.com/en/desktop/making-changes-in-a-branch/pushing-changes-to-github-from-github-desktop). Never delete the local `.git` directory.
 
-Version 2.0.9.1 does not require deleting any application directory or changing OAuth configuration. Upload the whole package over the existing repository paths. Existing deployment settings and repository variables remain unchanged. If you configured the public client ID directly in `public/kairo-config.json` instead of a repository variable, preserve that value when replacing the file. No application files need to be removed for this patch.
+Version 2.0.9.2 does not require deleting any application directory or changing OAuth configuration. Upload the whole package over the existing repository paths. Existing deployment settings and repository variables remain unchanged. If you configured the public client ID directly in `public/kairo-config.json` instead of a repository variable, preserve that value when replacing the file. No application files need to be removed for this patch.
 
-Before updating, export a JSON backup and preserve any unsynced original attachments. Keep the same site URL. Wait for the successful deployment, open the app online, then use the in-app **Update and restart** prompt when it appears. Do not clear browser data or uninstall the PWA: this could discard unsynced records or original files. Confirm **2.0.9.1** in the footer on every phone and computer before adding EUC time or resuming multi-device edits. Refresh Google access if asked and run synchronization. Existing records do not need reimporting.
+Before updating, export a JSON backup and preserve any unsynced original attachments. Keep the same site URL. Wait for the successful deployment, open the app online, then use the in-app **Update and restart** prompt when it appears. Do not clear browser data or uninstall the PWA: this could discard unsynced records or original files. Confirm **2.0.9.2** in the footer on every phone and computer before adding EUC time or resuming multi-device edits. Refresh Google access if asked and run synchronization. Existing records do not need reimporting.
 
 ## Release checklist
 
